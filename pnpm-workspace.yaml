@@ -5,3 +5,5 @@ allowBuilds:
   esbuild: true
   argon2: true
   "@biomejs/biome": true
+  ssh2: true
+  cpu-features: true

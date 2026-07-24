@@ -1,6 +1,10 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { AppShell } from './components/app-shell';
+import { CredentialsPage } from './pages/credentials';
 import { DashboardPage } from './pages/dashboard';
+import { DeviceDetailPage } from './pages/device-detail';
+import { DevicesPage } from './pages/devices';
+import { GroupsPage } from './pages/groups';
 import { LoginPage } from './pages/login';
 import { PlaceholderPage } from './pages/placeholder';
 import { ProfilePage } from './pages/profile';
@@ -47,6 +51,30 @@ const profileRoute = createRoute({
   component: ProfilePage,
 });
 
+const devicesRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/devices',
+  component: DevicesPage,
+});
+
+const deviceDetailRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/devices/$deviceId',
+  component: DeviceDetailPage,
+});
+
+const groupsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/groups',
+  component: GroupsPage,
+});
+
+const credentialsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/credentials',
+  component: CredentialsPage,
+});
+
 const placeholder = <P extends string>(path: P, title: string) =>
   createRoute({
     getParentRoute: () => shellRoute,
@@ -61,9 +89,11 @@ const routeTree = rootRoute.addChildren([
     indexRoute,
     usersRoute,
     profileRoute,
-    placeholder('/devices', 'Devices'),
+    devicesRoute,
+    deviceDetailRoute,
+    groupsRoute,
+    credentialsRoute,
     placeholder('/jobs', 'Jobs'),
-    placeholder('/credentials', 'Credentials'),
     placeholder('/hooks', 'Hooks'),
     placeholder('/settings', 'Settings'),
   ]),

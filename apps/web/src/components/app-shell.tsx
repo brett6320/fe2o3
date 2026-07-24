@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, Outlet, useNavigate } from '@tanstack/react-router';
 import {
   Activity,
+  FolderTree,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -21,6 +22,7 @@ import { cn } from '@/lib/utils';
 const nav = [
   { to: '/', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/devices', label: 'Devices', icon: Router },
+  { to: '/groups', label: 'Groups', icon: FolderTree },
   { to: '/jobs', label: 'Jobs', icon: Activity },
   { to: '/credentials', label: 'Credentials', icon: KeyRound },
   { to: '/hooks', label: 'Hooks', icon: Webhook },

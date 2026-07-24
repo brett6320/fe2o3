@@ -10,9 +10,12 @@ import {
 } from 'fastify-type-provider-zod';
 import { authPlugin } from './auth/plugin.js';
 import type { AppConfig } from './config.js';
+import { DriverRegistry } from './core/models/registry.js';
 import type { Db } from './db/index.js';
 import { authRoutes } from './routes/auth.js';
+import { deviceRoutes } from './routes/devices.js';
 import { healthRoutes } from './routes/health.js';
+import { inventoryRoutes } from './routes/inventory.js';
 import { orgRoutes } from './routes/orgs.js';
 import { setupRoutes } from './routes/setup.js';
 import { userRoutes } from './routes/users.js';
@@ -21,6 +24,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     db: Db;
     config: AppConfig;
+    registry: DriverRegistry;
   }
 }
 
@@ -42,6 +46,9 @@ export async function buildApp({ config, db }: BuildAppOptions) {
 
   app.decorate('db', db);
   app.decorate('config', config);
+  const registry = new DriverRegistry();
+  await registry.loadPlugins(config.driversDir);
+  app.decorate('registry', registry);
 
   await app.register(fastifyCookie);
 
@@ -66,6 +73,8 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   await app.register(authRoutes, { prefix: '/api/v1' });
   await app.register(userRoutes, { prefix: '/api/v1' });
   await app.register(orgRoutes, { prefix: '/api/v1' });
+  await app.register(inventoryRoutes, { prefix: '/api/v1' });
+  await app.register(deviceRoutes, { prefix: '/api/v1' });
 
   return app;
 }

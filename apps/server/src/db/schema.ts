@@ -1,4 +1,13 @@
-import { boolean, pgTable, text, timestamp, uniqueIndex } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  index,
+  integer,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uniqueIndex,
+} from 'drizzle-orm/pg-core';
 import { nanoid } from 'nanoid';
 
 const id = () =>
@@ -47,6 +56,102 @@ export const orgMemberships = pgTable(
     ...timestamps,
   },
   (t) => [uniqueIndex('org_memberships_org_user').on(t.orgId, t.userId)],
+);
+
+export const credentials = pgTable('credentials', {
+  id: id(),
+  orgId: text('org_id')
+    .notNull()
+    .references(() => orgs.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  username: text('username').notNull().default(''),
+  passwordEnc: text('password_enc'),
+  enablePasswordEnc: text('enable_password_enc'),
+  sshPrivateKeyEnc: text('ssh_private_key_enc'),
+  sshKeyPassphraseEnc: text('ssh_key_passphrase_enc'),
+  ...timestamps,
+});
+
+export const groups = pgTable(
+  'groups',
+  {
+    id: id(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    /** Subdirectory inside the org's git repo. */
+    pathSlug: text('path_slug').notNull(),
+    defaultCredentialId: text('default_credential_id').references(() => credentials.id, {
+      onDelete: 'set null',
+    }),
+    defaultIntervalSec: integer('default_interval_sec').notNull().default(3600),
+    ...timestamps,
+  },
+  (t) => [uniqueIndex('groups_org_slug').on(t.orgId, t.pathSlug)],
+);
+
+export const devices = pgTable(
+  'devices',
+  {
+    id: id(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => groups.id, { onDelete: 'restrict' }),
+    /** Unique per org; used as the filename inside the git repo. */
+    name: text('name').notNull(),
+    host: text('host').notNull(),
+    port: integer('port'),
+    protocol: text('protocol', { enum: ['ssh', 'telnet'] })
+      .notNull()
+      .default('ssh'),
+    modelId: text('model_id').notNull(),
+    credentialId: text('credential_id').references(() => credentials.id, { onDelete: 'set null' }),
+    intervalSec: integer('interval_sec'),
+    enabled: boolean('enabled').notNull().default(true),
+    vars: jsonb('vars').$type<Record<string, unknown>>().notNull().default({}),
+    lastStatus: text('last_status', { enum: ['never', 'running', 'success', 'failed'] })
+      .notNull()
+      .default('never'),
+    lastBackupAt: timestamp('last_backup_at', { withTimezone: true, mode: 'date' }),
+    lastError: text('last_error'),
+    nextRunAt: timestamp('next_run_at', { withTimezone: true, mode: 'date' }),
+    consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    ...timestamps,
+  },
+  (t) => [
+    uniqueIndex('devices_org_name').on(t.orgId, t.name),
+    index('devices_next_run').on(t.enabled, t.nextRunAt),
+  ],
+);
+
+export const jobs = pgTable(
+  'jobs',
+  {
+    id: id(),
+    orgId: text('org_id')
+      .notNull()
+      .references(() => orgs.id, { onDelete: 'cascade' }),
+    deviceId: text('device_id')
+      .notNull()
+      .references(() => devices.id, { onDelete: 'cascade' }),
+    trigger: text('trigger', { enum: ['scheduled', 'manual'] }).notNull(),
+    status: text('status', { enum: ['queued', 'running', 'success', 'failed'] })
+      .notNull()
+      .default('queued'),
+    startedAt: timestamp('started_at', { withTimezone: true, mode: 'date' }),
+    finishedAt: timestamp('finished_at', { withTimezone: true, mode: 'date' }),
+    error: text('error'),
+    /** Session transcript with secrets scrubbed. */
+    log: text('log'),
+    /** Commit created by this job; null = config unchanged. */
+    commitSha: text('commit_sha'),
+    ...timestamps,
+  },
+  (t) => [index('jobs_device_created').on(t.deviceId, t.createdAt)],
 );
 
 export const sessions = pgTable('sessions', {

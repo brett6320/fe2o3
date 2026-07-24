@@ -8,6 +8,13 @@
       "when": 1784866002487,
       "tag": "0000_loose_menace",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1784866939531,
+      "tag": "0001_cool_riptide",
+      "breakpoints": true
     }
   ]
 }
