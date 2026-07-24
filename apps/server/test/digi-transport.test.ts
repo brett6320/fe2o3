@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { runBackup } from '../src/core/executor.js';
 import digiTransport from '../src/core/models/digi-transport.js';
 import { startFakeDevice } from './fixtures/fake-ssh-server.js';
+import { startFakeTelnetDevice } from './fixtures/fake-telnet-server.js';
 
 // Excerpt of a real `config c show` from a Digi TransPort unit.
 const RUNNING = `eth 0 IPaddr "172.23.133.17"
@@ -60,6 +61,33 @@ describe('digi transport driver', () => {
       expect(result.configText).not.toMatch(/^OK$/m);
       // non-secret config is preserved
       expect(result.configText).toContain('user 1 name "oxidized"');
+    } finally {
+      await fake.close();
+    }
+  }, 20000);
+  it('also works over telnet (Sarian ends commands on OK, no prompt)', async () => {
+    const fake = await startFakeTelnetDevice({
+      prompt: 'ss345898>',
+      username: 'oxidized',
+      password: 'pw',
+      suppressCommandPrompt: true,
+      responses: {
+        ati: 'Digi TransPort WR21\nOK',
+        'config c show': RUNNING,
+        'config 0 show': SAVED,
+      },
+    });
+    try {
+      const result = await runBackup({
+        driver: digiTransport,
+        protocol: 'telnet',
+        connect: { host: '127.0.0.1', port: fake.port, username: 'oxidized', password: 'pw' },
+      });
+      expect(result.configText).toContain('eth 0 IPaddr "172.23.133.17"');
+      expect(result.configText).toContain('running-config');
+      expect(result.configText).toContain('saved-config');
+      expect(result.configText).not.toContain('Oy13Xg5hH09CSA==');
+      expect(result.configText).toContain('<secret hidden>');
     } finally {
       await fake.close();
     }
