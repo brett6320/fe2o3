@@ -67,13 +67,11 @@ export const moveRoutes: FastifyPluginAsyncZod = async (app) => {
       if (!auth) return;
       const { toOrgId, toGroupId } = req.body;
       if (!(await assertTargetAdmin(app.db, auth, toOrgId))) {
-        return reply
-          .code(403)
-          .send({
-            statusCode: 403,
-            error: 'Forbidden',
-            message: 'Admin required in the target org',
-          } as never);
+        return reply.code(403).send({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Admin required in the target org',
+        } as never);
       }
 
       const [row] = await app.db
@@ -96,13 +94,11 @@ export const moveRoutes: FastifyPluginAsyncZod = async (app) => {
         .where(and(eq(groups.id, toGroupId), eq(groups.orgId, toOrgId)))
         .limit(1);
       if (!toGroup) {
-        return reply
-          .code(400)
-          .send({
-            statusCode: 400,
-            error: 'Bad Request',
-            message: 'Target group not in target org',
-          } as never);
+        return reply.code(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'Target group not in target org',
+        } as never);
       }
 
       const [clash] = await app.db
@@ -111,13 +107,11 @@ export const moveRoutes: FastifyPluginAsyncZod = async (app) => {
         .where(and(eq(devices.orgId, toOrgId), eq(devices.name, row.device.name)))
         .limit(1);
       if (clash) {
-        return reply
-          .code(409)
-          .send({
-            statusCode: 409,
-            error: 'Conflict',
-            message: 'A device with this name already exists in the target org',
-          } as never);
+        return reply.code(409).send({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'A device with this name already exists in the target org',
+        } as never);
       }
 
       await moveConfigAcrossRepos(app.config.reposDir, {
@@ -167,13 +161,11 @@ export const moveRoutes: FastifyPluginAsyncZod = async (app) => {
           .send({ statusCode: 400, error: 'Bad Request', message: 'Already in that org' } as never);
       }
       if (!(await assertTargetAdmin(app.db, auth, toOrgId))) {
-        return reply
-          .code(403)
-          .send({
-            statusCode: 403,
-            error: 'Forbidden',
-            message: 'Admin required in the target org',
-          } as never);
+        return reply.code(403).send({
+          statusCode: 403,
+          error: 'Forbidden',
+          message: 'Admin required in the target org',
+        } as never);
       }
 
       const [row] = await app.db
@@ -202,13 +194,11 @@ export const moveRoutes: FastifyPluginAsyncZod = async (app) => {
         .where(and(eq(groups.orgId, toOrgId), eq(groups.pathSlug, row.group.pathSlug)))
         .limit(1);
       if (slugClash) {
-        return reply
-          .code(409)
-          .send({
-            statusCode: 409,
-            error: 'Conflict',
-            message: 'A group with this path slug exists in the target org',
-          } as never);
+        return reply.code(409).send({
+          statusCode: 409,
+          error: 'Conflict',
+          message: 'A group with this path slug exists in the target org',
+        } as never);
       }
       const groupDevices = await app.db
         .select({ id: devices.id, name: devices.name })
