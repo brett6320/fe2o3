@@ -108,6 +108,69 @@ Power Supply 0
     expect(fpc1?.children?.[0]?.name).toBe('PIC 0');
   });
 
+  it('handles an SRX chassis cluster (per-node grouping, no junk rows)', () => {
+    const cluster = `# --- version ---
+node0:
+--------------------------------------------------------------------------
+Model: srx300
+Junos: 23.4R2-S2.1
+JUNOS Software Release [23.4R2-S2.1]
+
+node1:
+--------------------------------------------------------------------------
+Model: srx300
+Junos: 23.4R2-S2.1
+JUNOS Software Release [23.4R2-S2.1]
+
+{primary:node0}
+
+# --- hardware ---
+node0:
+--------------------------------------------------------------------------
+Hardware inventory:
+Item             Version  Part number  Serial number     Description
+Chassis                                CV5116AF0111      SRX300
+Routing Engine   REV 0x08 650-065039   CV5116AF0111      RE-SRX300
+FPC 0                     BUILTIN      BUILTIN           FPC
+  PIC 0                                                  6xGE,2xGE SFP Base PIC
+Power Supply 0
+
+node1:
+--------------------------------------------------------------------------
+Hardware inventory:
+Item             Version  Part number  Serial number     Description
+Chassis                                CV5116AF0087      SRX300
+Routing Engine   REV 0x08 650-065039   CV5116AF0087      RE-SRX300
+FPC 0                     BUILTIN      BUILTIN           FPC
+  PIC 0                                                  6xGE,2xGE SFP Base PIC
+Power Supply 0
+
+{primary:node0}
+`;
+    const f = junos.facts?.(cluster);
+    expect(f?.model).toBe('srx300');
+    expect(f?.osVersion).toBe('23.4R2-S2.1');
+    // both chassis serials surfaced
+    expect(f?.serial).toBe('CV5116AF0111, CV5116AF0087');
+    // two top-level node groups, each holding that node's real components only
+    expect(f?.inventory?.map((i) => i.name)).toEqual(['node0', 'node1']);
+    const node0 = f?.inventory?.[0];
+    expect(node0?.children?.map((c) => c.name)).toEqual([
+      'Chassis',
+      'Routing Engine',
+      'FPC 0',
+      'Power Supply 0',
+    ]);
+    // PIC still nested under FPC within the node
+    const fpc = node0?.children?.find((c) => c.name === 'FPC 0');
+    expect(fpc?.children?.[0]?.name).toBe('PIC 0');
+    // node1 chassis serial correct, no junk items (node markers, dashes, {primary})
+    expect(f?.inventory?.[1]?.children?.[0]).toMatchObject({
+      name: 'Chassis',
+      serial: 'CV5116AF0087',
+    });
+  });
+
   it('returns null when there is nothing to parse', () => {
     expect(junos.facts?.('# --- configuration ---\nversion 1;\n')).toBeNull();
   });
