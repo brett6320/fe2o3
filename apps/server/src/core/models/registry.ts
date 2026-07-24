@@ -2,7 +2,7 @@ import { readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import type { DriverSpec } from '@fe2o3/driver-sdk';
 import cradlepoint from './cradlepoint.js';
-import digi from './digi.js';
+import digiDal from './digi-dal.js';
 import digiTransport from './digi-transport.js';
 import edgeos from './edgeos.js';
 import eos from './eos.js';
@@ -18,7 +18,7 @@ const builtins: DriverSpec[] = [
   routeros,
   edgeos,
   cradlepoint,
-  digi,
+  digiDal,
   digiTransport,
   linux,
 ];
