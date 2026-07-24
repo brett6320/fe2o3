@@ -74,7 +74,7 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
         } as never);
       }
       const [group] = await app.db
-        .select({ id: groups.id })
+        .select({ id: groups.id, defaultIntervalSec: groups.defaultIntervalSec })
         .from(groups)
         .where(and(eq(groups.id, b.groupId), eq(groups.orgId, req.params.orgId)))
         .limit(1);
@@ -111,7 +111,9 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
           intervalSec: b.intervalSec ?? null,
           enabled: b.enabled,
           vars: sealDeviceVars(b.vars, undefined, app.config.keyring),
-          nextRunAt: new Date(),
+          nextRunAt: b.backupNow
+            ? new Date()
+            : new Date(Date.now() + (b.intervalSec ?? group.defaultIntervalSec) * 1000),
         })
         .returning();
       return device ? { ...device, vars: publicDeviceVars(device.vars) } : device;

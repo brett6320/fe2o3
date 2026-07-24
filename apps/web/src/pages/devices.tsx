@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
 import { api, post } from '@/lib/api';
 import { useOrg } from '@/lib/org';
+import { useSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 export interface Device {
@@ -49,11 +50,97 @@ export function statusDot(status: Device['lastStatus']) {
   );
 }
 
+interface OrgOption {
+  id: string;
+  name: string;
+  slug?: string;
+  role?: 'admin' | 'operator' | 'readonly';
+}
+
+/** Select box with type-ahead filtering. */
+function TenantSelect({
+  options,
+  value,
+  onChange,
+}: {
+  options: OrgOption[];
+  value: string;
+  onChange: (id: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selected = options.find((o) => o.id === value);
+  const filtered = options.filter((o) =>
+    `${o.name} ${o.slug ?? ''}`.toLowerCase().includes(query.toLowerCase()),
+  );
+
+  return (
+    <div className="relative">
+      <Input
+        className="w-56"
+        placeholder="Tenant…"
+        value={open ? query : (selected?.name ?? '')}
+        onFocus={() => {
+          setOpen(true);
+          setQuery('');
+        }}
+        onBlur={() => {
+          blurTimer.current = setTimeout(() => setOpen(false), 150);
+        }}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {open && (
+        <ul className="absolute z-10 mt-1 max-h-64 w-56 overflow-auto rounded-md border border-border bg-card py-1 shadow-md">
+          {filtered.map((o) => (
+            <li key={o.id}>
+              <button
+                type="button"
+                className={cn(
+                  'w-full px-3 py-1.5 text-left text-sm hover:bg-accent',
+                  o.id === value && 'bg-accent font-medium',
+                )}
+                onMouseDown={() => {
+                  if (blurTimer.current) clearTimeout(blurTimer.current);
+                  onChange(o.id);
+                  setOpen(false);
+                }}
+              >
+                {o.name}
+                {o.slug && <span className="ml-2 text-xs text-muted-foreground">{o.slug}</span>}
+              </button>
+            </li>
+          ))}
+          {filtered.length === 0 && (
+            <li className="px-3 py-1.5 text-sm text-muted-foreground">No matches</li>
+          )}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 export function DevicesPage() {
-  const { orgId, role } = useOrg();
+  const { orgId: currentOrgId, role: currentRole } = useOrg();
+  const session = useSession();
   const qc = useQueryClient();
+  const [tenantId, setTenantId] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+
+  const isSuper = session.data?.isSuperadmin ?? false;
+  const allOrgs = useQuery({
+    queryKey: ['orgs'],
+    queryFn: () => api<OrgOption[]>('/orgs'),
+    enabled: isSuper,
+  });
+  const tenantOptions: OrgOption[] = isSuper ? (allOrgs.data ?? []) : (session.data?.orgs ?? []);
+  const orgId = tenantId ?? currentOrgId;
+  const role = isSuper
+    ? 'admin'
+    : orgId === currentOrgId
+      ? currentRole
+      : (session.data?.orgs.find((o) => o.id === orgId)?.role ?? null);
   const [form, setForm] = useState({
     name: '',
     host: '',
@@ -61,6 +148,7 @@ export function DevicesPage() {
     modelId: 'ios',
     groupId: '',
     credentialId: '',
+    backupNow: false,
   });
 
   const devices = useQuery({
@@ -93,11 +181,20 @@ export function DevicesPage() {
         modelId: form.modelId,
         groupId: form.groupId || groups.data?.[0]?.id,
         credentialId: form.credentialId || null,
+        backupNow: form.backupNow,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['devices', orgId] });
       setShowCreate(false);
-      setForm({ name: '', host: '', port: '', modelId: 'ios', groupId: '', credentialId: '' });
+      setForm({
+        name: '',
+        host: '',
+        port: '',
+        modelId: 'ios',
+        groupId: '',
+        credentialId: '',
+        backupNow: false,
+      });
     },
   });
 
@@ -118,6 +215,9 @@ export function DevicesPage() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {tenantOptions.length > 1 && (
+            <TenantSelect options={tenantOptions} value={orgId ?? ''} onChange={setTenantId} />
+          )}
           <Input
             placeholder="Filter…"
             className="w-48"
@@ -218,6 +318,14 @@ export function DevicesPage() {
                 </select>
               </div>
             </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={form.backupNow}
+                onChange={(e) => setForm((f) => ({ ...f, backupNow: e.target.checked }))}
+              />
+              Back up immediately after adding
+            </label>
             <ErrorText>{create.error?.message}</ErrorText>
             <Button type="submit" disabled={create.isPending || groups.data?.length === 0}>
               Add device
