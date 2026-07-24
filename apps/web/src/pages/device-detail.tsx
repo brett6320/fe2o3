@@ -27,6 +27,8 @@ interface InventoryItem {
   description?: string;
   pid?: string;
   serial?: string;
+  /** Tree depth (0 = top level); nested components are indented by this. */
+  depth: number;
 }
 interface FactsResponse {
   hasConfig: boolean;
@@ -135,7 +137,9 @@ function OverviewPanel({ device, facts }: { device: Device; facts: FactsResponse
                     // biome-ignore lint/suspicious/noArrayIndexKey: static inventory rows
                     key={i}
                   >
-                    <td className="px-4 py-2">{it.name || '—'}</td>
+                    <td className="px-4 py-2" style={{ paddingLeft: `${it.depth * 1.25 + 1}rem` }}>
+                      {it.name || '—'}
+                    </td>
                     <td className="px-4 py-2 text-muted-foreground">{it.description ?? '—'}</td>
                     <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">
                       {it.pid ?? '—'}

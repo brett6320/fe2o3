@@ -1,3 +1,4 @@
+import type { InventoryItem } from '@fe2o3/driver-sdk';
 import { deviceSchema, jobSchema, upsertDeviceRequestSchema, versionSchema } from '@fe2o3/shared';
 import { and, desc, eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
@@ -17,6 +18,8 @@ const inventoryItemSchema = z.object({
   description: z.string().optional(),
   pid: z.string().optional(),
   serial: z.string().optional(),
+  /** Tree depth (0 = top level); the tree is flattened pre-order for the wire. */
+  depth: z.number().int().nonnegative(),
 });
 const deviceFactsSchema = z.object({
   serial: z.string().optional(),
@@ -29,6 +32,23 @@ const factsResponseSchema = z.object({
   latestSha: z.string().nullable(),
   facts: deviceFactsSchema.nullable(),
 });
+
+/** Flatten an inventory tree pre-order into depth-tagged rows for the wire. */
+function flattenInventory(
+  items: InventoryItem[],
+  depth = 0,
+): Array<{
+  name: string;
+  description?: string | undefined;
+  pid?: string | undefined;
+  serial?: string | undefined;
+  depth: number;
+}> {
+  return items.flatMap((it) => [
+    { name: it.name, description: it.description, pid: it.pid, serial: it.serial, depth },
+    ...(it.children ? flattenInventory(it.children, depth + 1) : []),
+  ]);
+}
 
 export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
   const findDevice = async (orgId: string, id: string) => {
@@ -357,8 +377,13 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
       const [latest] = await repo.listVersions(row.group.pathSlug, row.device.name, 1);
       if (!latest) return { hasConfig: false, latestSha: null, facts: null };
       const content = await repo.showVersion(row.group.pathSlug, row.device.name, latest.sha);
-      const facts =
+      const parsed =
         content != null ? (app.registry.get(row.device.modelId)?.facts?.(content) ?? null) : null;
+      // Flatten the (possibly nested) inventory tree into depth-tagged rows.
+      const facts =
+        parsed?.inventory != null
+          ? { ...parsed, inventory: flattenInventory(parsed.inventory) }
+          : parsed;
       return { hasConfig: content != null, latestSha: latest.sha, facts };
     },
   );

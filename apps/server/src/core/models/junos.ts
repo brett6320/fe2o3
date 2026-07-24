@@ -16,17 +16,21 @@ function section(config: string, name: string): string {
   return (next === -1 ? rest : rest.slice(0, next)).trim();
 }
 
+const HW_HEADER = /^Item\s+Version\s+Part number\s+Serial number\s+Description/;
+// Lines that appear inside the section but aren't inventory rows: the dashed
+// separators, the "Hardware inventory:" heading, a repeated column header, node
+// markers, and the trailing `{primary:node0}` cluster status line.
+const HW_NOISE = /^(?:-{3,}\s*$|Hardware inventory:|node\d+:|\{.*\}\s*$)/;
+
 /**
- * Parse `show chassis hardware` — a fixed-width table whose columns are located
- * from the header row, with 2-space indentation encoding the component tree
- * (Chassis → FPC → PIC …). Returns the chassis serial and the inventory tree.
+ * Parse one `show chassis hardware` table — a fixed-width table whose columns
+ * are located from the header row, with 2-space indentation encoding the
+ * component tree (Chassis → FPC → PIC → Xcvr).
  */
-function parseHardware(text: string): { serial: string | undefined; inventory: InventoryItem[] } {
-  const lines = text.split('\n');
-  const headerIdx = lines.findIndex((l) =>
-    /^Item\s+Version\s+Part number\s+Serial number\s+Description/.test(l),
-  );
-  if (headerIdx === -1) return { serial: undefined, inventory: [] };
+function parseTable(block: string): { serial: string | undefined; items: InventoryItem[] } {
+  const lines = block.split('\n');
+  const headerIdx = lines.findIndex((l) => HW_HEADER.test(l));
+  if (headerIdx === -1) return { serial: undefined, items: [] };
   const header = lines[headerIdx] ?? '';
   const col = {
     version: header.indexOf('Version'),
@@ -35,12 +39,12 @@ function parseHardware(text: string): { serial: string | undefined; inventory: I
     desc: header.indexOf('Description'),
   };
 
-  const inventory: InventoryItem[] = [];
+  const items: InventoryItem[] = [];
   const stack: { depth: number; item: InventoryItem }[] = [];
   let chassisSerial: string | undefined;
 
   for (const line of lines.slice(headerIdx + 1)) {
-    if (!line.trim()) continue;
+    if (!line.trim() || HW_NOISE.test(line) || HW_HEADER.test(line)) continue;
     const itemRaw = line.slice(0, col.version);
     const name = itemRaw.trim();
     if (!name) continue;
@@ -60,13 +64,49 @@ function parseHardware(text: string): { serial: string | undefined; inventory: I
       parent.children ??= [];
       parent.children.push(item);
     } else {
-      inventory.push(item);
+      items.push(item);
     }
     stack.push({ depth, item });
 
     if (name === 'Chassis' && serial) chassisSerial = serial;
   }
-  return { serial: chassisSerial ?? inventory[0]?.serial, inventory };
+  return { serial: chassisSerial ?? items[0]?.serial, items };
+}
+
+/**
+ * Parse `show chassis hardware`. On a chassis cluster the output repeats per
+ * node (`node0:` / `node1:`); each node's inventory is grouped under a node
+ * item and every chassis serial is surfaced. A standalone device is a single
+ * table.
+ */
+function parseHardware(text: string): { serial: string | undefined; inventory: InventoryItem[] } {
+  if (!/^node\d+:\s*$/m.test(text)) {
+    const { serial, items } = parseTable(text);
+    return { serial, inventory: items };
+  }
+
+  const blocks: { node: string; lines: string[] }[] = [];
+  let cur: { node: string; lines: string[] } | null = null;
+  for (const line of text.split('\n')) {
+    const m = /^(node\d+):\s*$/.exec(line);
+    if (m) {
+      cur = { node: m[1] ?? 'node', lines: [] };
+      blocks.push(cur);
+    } else if (cur) {
+      cur.lines.push(line);
+    }
+  }
+
+  const inventory: InventoryItem[] = [];
+  const serials: string[] = [];
+  for (const b of blocks) {
+    const { serial, items } = parseTable(b.lines.join('\n'));
+    if (serial) serials.push(serial);
+    const parent: InventoryItem = { name: b.node };
+    if (items.length) parent.children = items;
+    inventory.push(parent);
+  }
+  return { serial: serials.length ? serials.join(', ') : undefined, inventory };
 }
 
 /** Parse model, Junos version, serial, and hardware inventory from a JunOS config. */
