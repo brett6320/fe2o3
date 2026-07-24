@@ -164,6 +164,42 @@ describe('backup engine e2e', () => {
     expect(jobsRes.json().every((j: { status: string }) => j.status === 'success')).toBe(true);
   });
 
+  it('renaming a group path slug moves device files with history', async () => {
+    const groups = await app.inject({
+      method: 'GET',
+      url: `/api/v1/orgs/${orgId}/groups`,
+      cookies: cookie,
+    });
+    const groupId = groups.json()[0].id;
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/orgs/${orgId}/groups/${groupId}`,
+      cookies: cookie,
+      payload: { pathSlug: 'datacenter' },
+    });
+    expect(res.statusCode).toBe(200);
+
+    const repoDir = join(app.config.reposDir, 'acme');
+    const moved = await readFile(join(repoDir, 'datacenter', 'router1'), 'utf8');
+    expect(moved).toContain('hostname router1');
+
+    // history still resolves through the rename
+    const versions = await app.inject({
+      method: 'GET',
+      url: `/api/v1/orgs/${orgId}/devices/${deviceId}/versions`,
+      cookies: cookie,
+    });
+    expect(versions.json().length).toBeGreaterThanOrEqual(1);
+
+    // move it back so other tests keep working
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/orgs/${orgId}/groups/${groupId}`,
+      cookies: cookie,
+      payload: { pathSlug: 'core' },
+    });
+  });
+
   it('records a failed job when the device is unreachable', async () => {
     const group = await app.inject({
       method: 'GET',

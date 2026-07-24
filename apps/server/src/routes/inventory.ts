@@ -10,7 +10,8 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { encryptSecret } from '../auth/crypto.js';
 import { requireOrgRole } from '../auth/plugin.js';
-import { credentials, devices, groups } from '../db/schema.js';
+import { getOrgRepo } from '../core/git/repo.js';
+import { credentials, devices, groups, orgs } from '../db/schema.js';
 import { respond } from './replies.js';
 
 const orgParams = z.object({ orgId: z.string() });
@@ -235,6 +236,55 @@ export const inventoryRoutes: FastifyPluginAsyncZod = async (app) => {
       },
     },
     async (req, reply) => {
+      const [existing] = await app.db
+        .select()
+        .from(groups)
+        .where(and(eq(groups.id, req.params.id), eq(groups.orgId, req.params.orgId)))
+        .limit(1);
+      if (!existing) {
+        return reply
+          .code(404)
+          .send({ statusCode: 404, error: 'Not Found', message: 'Group not found' } as never);
+      }
+
+      // A slug change moves every device file in git so history follows
+      if (req.body.pathSlug !== undefined && req.body.pathSlug !== existing.pathSlug) {
+        const [dupe] = await app.db
+          .select({ id: groups.id })
+          .from(groups)
+          .where(and(eq(groups.orgId, req.params.orgId), eq(groups.pathSlug, req.body.pathSlug)))
+          .limit(1);
+        if (dupe) {
+          return reply
+            .code(409)
+            .send({
+              statusCode: 409,
+              error: 'Conflict',
+              message: 'Path slug already in use',
+            } as never);
+        }
+        const [org] = await app.db
+          .select({ slug: orgs.slug })
+          .from(orgs)
+          .where(eq(orgs.id, req.params.orgId))
+          .limit(1);
+        const groupDevices = await app.db
+          .select({ name: devices.name })
+          .from(devices)
+          .where(eq(devices.groupId, req.params.id));
+        if (org && groupDevices.length > 0) {
+          const repo = await getOrgRepo(app.config.reposDir, org.slug);
+          for (const d of groupDevices) {
+            await repo.moveDevice({
+              fromGroup: existing.pathSlug,
+              fromName: d.name,
+              toGroup: req.body.pathSlug,
+              toName: d.name,
+            });
+          }
+        }
+      }
+
       const patch: Record<string, unknown> = {};
       if (req.body.name !== undefined) patch.name = req.body.name;
       if (req.body.pathSlug !== undefined) patch.pathSlug = req.body.pathSlug;

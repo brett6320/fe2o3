@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
-import { api, del, post } from '@/lib/api';
+import { api, del, patch, post } from '@/lib/api';
 import { useOrg } from '@/lib/org';
 
 interface Group {
@@ -23,6 +23,13 @@ export function GroupsPage() {
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', pathSlug: '', defaultCredentialId: '' });
+  const [editing, setEditing] = useState<Group | null>(null);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    pathSlug: '',
+    defaultCredentialId: '',
+    defaultIntervalSec: '3600',
+  });
 
   const groups = useQuery({
     queryKey: ['groups', orgId],
@@ -53,6 +60,29 @@ export function GroupsPage() {
     mutationFn: (id: string) => del(`/orgs/${orgId}/groups/${id}`),
     onSuccess: invalidate,
   });
+  const update = useMutation({
+    mutationFn: () =>
+      patch<Group>(`/orgs/${orgId}/groups/${editing?.id}`, {
+        name: editForm.name,
+        pathSlug: editForm.pathSlug,
+        defaultCredentialId: editForm.defaultCredentialId || null,
+        defaultIntervalSec: Number(editForm.defaultIntervalSec),
+      }),
+    onSuccess: () => {
+      invalidate();
+      setEditing(null);
+    },
+  });
+
+  const startEdit = (g: Group) => {
+    setEditing(g);
+    setEditForm({
+      name: g.name,
+      pathSlug: g.pathSlug,
+      defaultCredentialId: g.defaultCredentialId ?? '',
+      defaultIntervalSec: String(g.defaultIntervalSec),
+    });
+  };
 
   return (
     <div className="p-6">
@@ -125,6 +155,87 @@ export function GroupsPage() {
         </Card>
       )}
 
+      {editing && (
+        <Card className="mt-4 max-w-md">
+          <h2 className="mb-4 font-medium">Edit group: {editing.name}</h2>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              update.mutate();
+            }}
+          >
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="ge-name">Name</Label>
+                <Input
+                  id="ge-name"
+                  required
+                  value={editForm.name}
+                  onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ge-slug">Path slug</Label>
+                <Input
+                  id="ge-slug"
+                  required
+                  pattern="[a-z0-9][a-z0-9-]*"
+                  value={editForm.pathSlug}
+                  onChange={(e) => setEditForm((f) => ({ ...f, pathSlug: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ge-cred">Default credential</Label>
+                <select
+                  id="ge-cred"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  value={editForm.defaultCredentialId}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, defaultCredentialId: e.target.value }))
+                  }
+                >
+                  <option value="">None</option>
+                  {creds.data?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ge-interval">Default interval (seconds)</Label>
+                <Input
+                  id="ge-interval"
+                  type="number"
+                  min={60}
+                  required
+                  value={editForm.defaultIntervalSec}
+                  onChange={(e) =>
+                    setEditForm((f) => ({ ...f, defaultIntervalSec: e.target.value }))
+                  }
+                />
+              </div>
+            </div>
+            {editForm.pathSlug !== editing.pathSlug && (
+              <p className="text-xs text-warning">
+                Changing the path slug moves every device file in the git repository (history is
+                preserved).
+              </p>
+            )}
+            <ErrorText>{update.error?.message}</ErrorText>
+            <div className="flex gap-2">
+              <Button type="submit" disabled={update.isPending}>
+                Save
+              </Button>
+              <Button type="button" variant="outline" onClick={() => setEditing(null)}>
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </Card>
+      )}
+
       <div className="mt-6 overflow-hidden rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-muted-foreground">
@@ -145,9 +256,14 @@ export function GroupsPage() {
                 <td className="px-4 py-2">{Math.round(g.defaultIntervalSec / 60)} min</td>
                 <td className="px-4 py-2 text-right">
                   {role === 'admin' && (
-                    <Button variant="destructive" onClick={() => remove.mutate(g.id)}>
-                      Delete
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button variant="outline" onClick={() => startEdit(g)}>
+                        Edit
+                      </Button>
+                      <Button variant="destructive" onClick={() => remove.mutate(g.id)}>
+                        Delete
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>
