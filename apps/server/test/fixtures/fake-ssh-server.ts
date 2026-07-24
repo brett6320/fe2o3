@@ -17,6 +17,8 @@ export interface FakeDevice {
   banner?: string;
   /** Only submit a command on carriage return (\r), like MikroTik RouterOS. */
   requireCr?: boolean;
+  /** One command whose reply is streamed in chunks with gaps (tests idle timeout). */
+  slowCommand?: { cmd: string; chunks: string[]; gapMs: number };
 }
 
 const hostKey = generateKeyPairSync('rsa', {
@@ -97,6 +99,22 @@ export async function startFakeDevice(device: FakeDevice) {
               lineBuf = lineBuf.slice(idx + 1);
               const cmd = line.trim();
               stream.write(`${line}\r\n`);
+              if (cmd.length > 0 && device.slowCommand && cmd === device.slowCommand.cmd) {
+                const { chunks, gapMs } = device.slowCommand;
+                let ci = 0;
+                const drip = () => {
+                  if (ci < chunks.length) {
+                    stream.write(chunks[ci].replace(/\n/g, '\r\n'));
+                    ci++;
+                    setTimeout(drip, gapMs);
+                  } else {
+                    stream.write(`\r\n${device.prompt} `);
+                  }
+                };
+                drip();
+                idx = lineBuf.indexOf(sep);
+                continue;
+              }
               if (cmd.length > 0) {
                 const body = device.responses[cmd];
                 if (Array.isArray(body)) {

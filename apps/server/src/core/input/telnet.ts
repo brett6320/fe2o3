@@ -75,7 +75,9 @@ export async function connectTelnet(opts: ConnectOptions): Promise<Transport> {
 
   return {
     async expect(pattern: RegExp, expectTimeoutMs = timeoutMs) {
-      const deadline = Date.now() + expectTimeoutMs;
+      // Idle timeout — resets whenever new data arrives (see ssh.ts).
+      let seen = buffer.length;
+      let deadline = Date.now() + expectTimeoutMs;
       while (true) {
         if (pattern.test(buffer)) {
           const out = buffer;
@@ -83,6 +85,10 @@ export async function connectTelnet(opts: ConnectOptions): Promise<Transport> {
           return out;
         }
         if (closed) throw new Error(`connection closed while waiting for ${pattern}`);
+        if (buffer.length !== seen) {
+          seen = buffer.length;
+          deadline = Date.now() + expectTimeoutMs;
+        }
         const remaining = deadline - Date.now();
         if (remaining <= 0) throw new ExpectTimeoutError(pattern, buffer);
         await new Promise<void>((resolve) => {
