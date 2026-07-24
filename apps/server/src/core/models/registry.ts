@@ -1,6 +1,8 @@
 import { readdirSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import type { DriverSpec } from '@fe2o3/driver-sdk';
+import cradlepoint from './cradlepoint.js';
+import digi from './digi.js';
 import edgeos from './edgeos.js';
 import eos from './eos.js';
 import ios from './ios.js';
@@ -8,7 +10,7 @@ import junos from './junos.js';
 import linux from './linux.js';
 import routeros from './routeros.js';
 
-const builtins: DriverSpec[] = [ios, junos, eos, routeros, edgeos, linux];
+const builtins: DriverSpec[] = [ios, junos, eos, routeros, edgeos, cradlepoint, digi, linux];
 
 export class DriverRegistry {
   private drivers = new Map<string, DriverSpec>();
