@@ -78,6 +78,8 @@ export const upsertDeviceRequestSchema = z.object({
   intervalSec: z.number().int().min(60).max(604800).nullable().optional(),
   enabled: z.boolean().default(true),
   vars: z.record(z.string(), z.unknown()).default({}),
+  /** Create-only: schedule the first backup immediately instead of after one interval. */
+  backupNow: z.boolean().default(false),
 });
 
 export const jobSchema = z.object({

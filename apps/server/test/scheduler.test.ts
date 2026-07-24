@@ -73,6 +73,7 @@ describe('scheduler', () => {
         port: fake.port,
         modelId: 'ios',
         groupId: group.json().id,
+        backupNow: true,
       },
     });
     deviceId = device.json().id;
