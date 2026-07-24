@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
-import { api, patch, post } from '@/lib/api';
+import { ApiError, api, patch, post } from '@/lib/api';
 import { useOrg } from '@/lib/org-context';
 import { cn } from '@/lib/utils';
 import { type Device, statusDot } from './devices';
@@ -74,7 +74,16 @@ export function DeviceDetailPage() {
     queryFn: () => api<Device>(base),
     enabled: !!orgId,
     refetchInterval: 10_000,
+    retry: false, // a 404 (device not in the selected tenant) shouldn't retry
   });
+
+  // Switching tenants can leave this page pointing at a device the new org
+  // doesn't have. Rather than spin on "Loading…", go back to the device list.
+  useEffect(() => {
+    if (device.error instanceof ApiError && device.error.statusCode === 404) {
+      navigate({ to: '/devices' });
+    }
+  }, [device.error, navigate]);
   const versions = useQuery({
     queryKey: ['versions', orgId, deviceId],
     queryFn: () => api<Version[]>(`${base}/versions`),
