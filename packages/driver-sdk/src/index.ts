@@ -20,6 +20,12 @@ export interface CommandSpec {
   name?: string;
   /** Post-process raw output (strip banners, pagination artifacts, etc.). */
   transform?: (raw: string) => string;
+  /**
+   * When true, an error match (per the driver's errorPatterns) skips this
+   * command instead of failing the whole backup — for commands not supported
+   * on every platform in a family (e.g. `show inventory` on older Cisco gear).
+   */
+  optional?: boolean;
 }
 
 /** Rewrites config text to remove secrets and volatile noise before commit. */
