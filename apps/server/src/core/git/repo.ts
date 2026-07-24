@@ -87,6 +87,20 @@ export class OrgRepo {
     return this.enqueue(() => pushMirror(this.dir, cfg));
   }
 
+  /** Remove a device file (used when a device/group moves to another org's repo). */
+  removeDevice(opts: { groupSlug: string; deviceName: string }): Promise<void> {
+    return this.enqueue(async () => {
+      const rel = join(opts.groupSlug, opts.deviceName);
+      const exists = await this.git(['cat-file', '-e', `HEAD:${rel}`]).then(
+        () => true,
+        () => false,
+      );
+      if (!exists) return;
+      await this.git(['rm', '--quiet', '--', rel]);
+      await this.git(['commit', '-m', `${opts.deviceName}: moved out`]);
+    });
+  }
+
   async listVersions(groupSlug: string, deviceName: string, limit = 100) {
     const rel = join(groupSlug, deviceName);
     try {

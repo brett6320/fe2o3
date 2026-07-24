@@ -24,6 +24,7 @@ import { hookRoutes } from './routes/hooks.js';
 import { importRoutes } from './routes/import.js';
 import { inventoryRoutes } from './routes/inventory.js';
 import { mfaRoutes } from './routes/mfa.js';
+import { moveRoutes } from './routes/moves.js';
 import { orgRoutes } from './routes/orgs.js';
 import { settingRoutes } from './routes/settings.js';
 import { setupRoutes } from './routes/setup.js';
@@ -86,6 +87,7 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   await app.register(orgRoutes, { prefix: '/api/v1' });
   await app.register(inventoryRoutes, { prefix: '/api/v1' });
   await app.register(deviceRoutes, { prefix: '/api/v1' });
+  await app.register(moveRoutes, { prefix: '/api/v1' });
   await app.register(eventRoutes, { prefix: '/api/v1' });
   await app.register(mfaRoutes, { prefix: '/api/v1' });
   await app.register(apiKeyRoutes, { prefix: '/api/v1' });
