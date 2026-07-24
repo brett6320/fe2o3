@@ -1,4 +1,3 @@
-import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { blobKeyId, decryptSecret } from '../src/auth/crypto.js';
