@@ -112,9 +112,13 @@ export async function runBackup(session: DeviceSession): Promise<ExecutorResult>
     }
 
     const sections: string[] = [];
+    // Some CLIs don't reprint the prompt after a command over a non-interactive
+    // session (Digi TransPort/Sarian ends each command with a bare `OK`), so a
+    // driver may set commandComplete to detect end-of-output instead.
+    const commandDone = driver.commandComplete ?? driver.prompt;
     for (const spec of driver.commands) {
       await sendCmd(spec.cmd);
-      const raw = await expectPaged(transport, driver.prompt);
+      const raw = await expectPaged(transport, commandDone);
       const errorMatch = (driver.errorPatterns ?? []).map((p) => raw.match(p)?.[0]).find(Boolean);
       if (errorMatch) {
         // Unsupported optional command (e.g. `show inventory` on older IOS):

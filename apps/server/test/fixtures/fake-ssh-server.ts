@@ -19,6 +19,8 @@ export interface FakeDevice {
   requireCr?: boolean;
   /** One command whose reply is streamed in chunks with gaps (tests idle timeout). */
   slowCommand?: { cmd: string; chunks: string[]; gapMs: number };
+  /** Don't reprint the prompt after a command (Digi Sarian ends on `OK`, no prompt). */
+  suppressCommandPrompt?: boolean;
 }
 
 const hostKey = generateKeyPairSync('rsa', {
@@ -130,6 +132,10 @@ export async function startFakeDevice(device: FakeDevice) {
                   return;
                 } else {
                   stream.write(`% Invalid input detected at '^' marker.\r\n`);
+                }
+                if (device.suppressCommandPrompt) {
+                  idx = lineBuf.indexOf(sep);
+                  continue;
                 }
               }
               stream.write(`${device.prompt} `);

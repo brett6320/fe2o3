@@ -33,8 +33,9 @@ describe('digi transport driver', () => {
       username: 'oxidized',
       password: 'pw',
       requireCr: true, // AT-command CLI submits on carriage return
+      suppressCommandPrompt: true, // Sarian sends no prompt after a command
       responses: {
-        ati: 'Digi TransPort WR21',
+        ati: 'Digi TransPort WR21\nOK',
         'config c show': RUNNING,
         'config 0 show': SAVED,
       },
