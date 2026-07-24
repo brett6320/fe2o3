@@ -99,7 +99,7 @@ describe('scheduler', () => {
 
     const [d] = await app.db.select().from(devices).where(eq(devices.id, deviceId));
     expect(d?.lastStatus).toBe('success');
-    expect(d?.nextRunAt && d.nextRunAt.getTime()).toBeGreaterThan(Date.now());
+    expect(d?.nextRunAt?.getTime()).toBeGreaterThan(Date.now());
     expect(events).toContain('job.started');
     expect(events).toContain('job.finished');
   }, 15000);

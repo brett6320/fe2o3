@@ -4,6 +4,8 @@ export interface Transport {
   expect(pattern: RegExp, timeoutMs?: number): Promise<string>;
   /** Send a line (newline appended). */
   send(line: string): Promise<void>;
+  /** Send raw bytes without a newline (e.g. space to continue pagination). */
+  sendRaw(data: string): Promise<void>;
   /** Complete raw transcript of the session (for job logs). */
   transcript(): string;
   close(): Promise<void>;
