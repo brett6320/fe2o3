@@ -3,35 +3,60 @@ import { type ConnectOptions, ExpectTimeoutError, type Transport } from './trans
 
 const DEFAULT_TIMEOUT = 20_000;
 
-/** Algorithms old network gear still requires; appended, not replacing defaults. */
-const LEGACY: ConnectConfig['algorithms'] = {
+/**
+ * Comprehensive algorithm offer: modern first (curve25519/ecdh/gcm/chacha —
+ * needed by current firmware such as Digi DAL) plus legacy fallbacks
+ * (group1-sha1, ssh-rsa, CBC, 3des, hmac-sha1-96/md5) for ancient SSH servers.
+ * We replace ssh2's defaults with this superset so nothing is excluded at
+ * either end. Cast because @types/ssh2's unions omit some still-valid names.
+ */
+const LEGACY = {
   kex: [
+    'curve25519-sha256',
+    'curve25519-sha256@libssh.org',
     'ecdh-sha2-nistp256',
     'ecdh-sha2-nistp384',
     'ecdh-sha2-nistp521',
     'diffie-hellman-group-exchange-sha256',
+    'diffie-hellman-group16-sha512',
+    'diffie-hellman-group18-sha512',
     'diffie-hellman-group14-sha256',
     'diffie-hellman-group14-sha1',
+    'diffie-hellman-group-exchange-sha1',
     'diffie-hellman-group1-sha1',
   ],
   serverHostKey: [
     'ssh-ed25519',
     'ecdsa-sha2-nistp256',
+    'ecdsa-sha2-nistp384',
+    'ecdsa-sha2-nistp521',
     'rsa-sha2-512',
     'rsa-sha2-256',
     'ssh-rsa',
     'ssh-dss',
   ],
   cipher: [
+    'chacha20-poly1305@openssh.com',
     'aes128-gcm@openssh.com',
     'aes256-gcm@openssh.com',
     'aes128-ctr',
     'aes192-ctr',
     'aes256-ctr',
     'aes128-cbc',
+    'aes192-cbc',
+    'aes256-cbc',
     '3des-cbc',
   ],
-};
+  hmac: [
+    'hmac-sha2-256-etm@openssh.com',
+    'hmac-sha2-512-etm@openssh.com',
+    'hmac-sha2-256',
+    'hmac-sha2-512',
+    'hmac-sha1',
+    'hmac-sha1-96',
+    'hmac-md5',
+  ],
+} as unknown as ConnectConfig['algorithms'];
 
 export async function connectSsh(opts: ConnectOptions): Promise<Transport> {
   const client = new Client();
