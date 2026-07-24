@@ -18,6 +18,9 @@ export default defineDriver({
   comment: '# ',
   // AT-command heritage: commands submit on carriage return, not line feed.
   lineEnding: '\r',
+  // Sarian doesn't reprint the prompt after a command over SSH; every command
+  // ends with a bare `OK`.
+  commandComplete: /^OK\s*$/m,
   init: [],
   commands: [
     { cmd: 'ati', name: 'identity', optional: true },

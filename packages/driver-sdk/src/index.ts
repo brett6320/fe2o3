@@ -69,6 +69,13 @@ export interface DriverSpec {
    * (e.g. MikroTik RouterOS) only treat carriage return as Enter. Default `\n`.
    */
   lineEnding?: '\n' | '\r' | '\r\n';
+  /**
+   * End-of-command-output marker, used instead of `prompt` when a device
+   * doesn't reprint its prompt after a command over a non-interactive session
+   * (e.g. Digi TransPort/Sarian terminates every command with a bare `OK`).
+   * `prompt` is still used for the initial login.
+   */
+  commandComplete?: RegExp;
   /** Per-device variables this driver honors (shown in the UI device form). */
   vars?: DriverVar[];
 }

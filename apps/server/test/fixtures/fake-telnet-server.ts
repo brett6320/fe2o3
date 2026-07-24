@@ -6,6 +6,8 @@ export interface FakeTelnetDevice {
   username: string;
   password: string;
   responses: Record<string, string>;
+  /** Don't reprint the prompt after a command (Digi Sarian ends on `OK`). */
+  suppressCommandPrompt?: boolean;
 }
 
 /** Line-based telnet device emulator with login/password prompts. */
@@ -15,7 +17,7 @@ export async function startFakeTelnetDevice(device: FakeTelnetDevice) {
     let buf = '';
     socket.write('login: ');
     socket.on('data', (data) => {
-      buf += data.toString('utf8').replace(/\r/g, '');
+      buf += data.toString('utf8').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
       let idx = buf.indexOf('\n');
       while (idx >= 0) {
         const line = buf.slice(0, idx).trim();
@@ -40,7 +42,7 @@ export async function startFakeTelnetDevice(device: FakeTelnetDevice) {
               socket.write('bad command name\r\n');
             }
           }
-          socket.write(`${device.prompt} `);
+          if (!device.suppressCommandPrompt) socket.write(`${device.prompt} `);
         }
         idx = buf.indexOf('\n');
       }
