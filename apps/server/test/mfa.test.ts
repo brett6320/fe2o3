@@ -154,6 +154,24 @@ describe('totp mfa + api keys', () => {
     expect(after.statusCode).toBe(401);
   });
 
+  it('every generated token parses regardless of base64url characters', async () => {
+    // regression: '_' inside the token used to break prefix/secret splitting
+    for (let i = 0; i < 15; i++) {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/v1/api-keys',
+        cookies: cookie,
+        payload: { name: `k${i}`, scope: 'read' },
+      });
+      const res = await app.inject({
+        method: 'GET',
+        url: `/api/v1/orgs/${orgId}/devices`,
+        headers: { authorization: `Bearer ${created.json().token}` },
+      });
+      expect(res.statusCode).toBe(200);
+    }
+  });
+
   it('audit log records mutations', async () => {
     const { auditLog } = await import('../src/db/schema.js');
     const rows = await app.db.select().from(auditLog);

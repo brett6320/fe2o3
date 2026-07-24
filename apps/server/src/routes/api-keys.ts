@@ -56,7 +56,8 @@ export const apiKeyRoutes: FastifyPluginAsyncZod = async (app) => {
       const auth = req.auth;
       if (!auth) throw new Error('unreachable');
       const { token, hash } = generateToken();
-      const prefix = token.slice(0, 8);
+      // hex, so it can never contain the '_' separator (the base64url token can)
+      const prefix = hash.slice(0, 8);
       const fullToken = `fe2o3_${prefix}_${token}`;
       const [row] = await app.db
         .insert(apiKeys)
