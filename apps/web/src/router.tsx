@@ -12,6 +12,7 @@ import { JobsPage } from './pages/jobs';
 import { LoginPage } from './pages/login';
 import { ModelsPage } from './pages/models';
 import { OrgsPage } from './pages/orgs';
+import { OverviewPage } from './pages/overview';
 import { ProfilePage } from './pages/profile';
 import { SettingsPage } from './pages/settings';
 import { SetupPage } from './pages/setup';
@@ -101,6 +102,12 @@ const auditRoute = createRoute({
   component: AuditPage,
 });
 
+const overviewRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/overview',
+  component: OverviewPage,
+});
+
 const orgsRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/orgs',
@@ -140,6 +147,7 @@ const routeTree = rootRoute.addChildren([
     modelsRoute,
     apiKeysRoute,
     auditRoute,
+    overviewRoute,
     orgsRoute,
     hooksRoute,
     settingsRoute,
