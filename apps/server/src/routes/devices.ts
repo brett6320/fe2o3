@@ -12,6 +12,24 @@ import { respond } from './replies.js';
 const orgParams = z.object({ orgId: z.string() });
 const orgIdParams = z.object({ orgId: z.string(), id: z.string() });
 
+const inventoryItemSchema = z.object({
+  name: z.string(),
+  description: z.string().optional(),
+  pid: z.string().optional(),
+  serial: z.string().optional(),
+});
+const deviceFactsSchema = z.object({
+  serial: z.string().optional(),
+  model: z.string().optional(),
+  osVersion: z.string().optional(),
+  inventory: z.array(inventoryItemSchema).optional(),
+});
+const factsResponseSchema = z.object({
+  hasConfig: z.boolean(),
+  latestSha: z.string().nullable(),
+  facts: deviceFactsSchema.nullable(),
+});
+
 export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
   const findDevice = async (orgId: string, id: string) => {
     const [row] = await app.db
@@ -313,6 +331,35 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
           .send({ statusCode: 404, error: 'Not Found', message: 'Version not found' } as never);
       }
       return { content };
+    },
+  );
+
+  app.get(
+    '/orgs/:orgId/devices/:id/facts',
+    {
+      preHandler: requireOrgRole('readonly'),
+      schema: {
+        tags: ['devices'],
+        params: orgIdParams,
+        response: respond(factsResponseSchema, 404),
+      },
+    },
+    async (req, reply) => {
+      const row = await findDevice(req.params.orgId, req.params.id);
+      if (!row) {
+        return reply
+          .code(404)
+          .send({ statusCode: 404, error: 'Not Found', message: 'Device not found' } as never);
+      }
+      // Parse facts on demand from the latest stored config — nothing to persist,
+      // and drivers without a parser simply return no facts.
+      const repo = await getOrgRepo(app.config.reposDir, row.org.slug);
+      const [latest] = await repo.listVersions(row.group.pathSlug, row.device.name, 1);
+      if (!latest) return { hasConfig: false, latestSha: null, facts: null };
+      const content = await repo.showVersion(row.group.pathSlug, row.device.name, latest.sha);
+      const facts =
+        content != null ? (app.registry.get(row.device.modelId)?.facts?.(content) ?? null) : null;
+      return { hasConfig: content != null, latestSha: latest.sha, facts };
     },
   );
 

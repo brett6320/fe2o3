@@ -164,6 +164,21 @@ describe('backup engine e2e', () => {
     expect(jobsRes.json().every((j: { status: string }) => j.status === 'success')).toBe(true);
   });
 
+  it('parses device facts from the latest config', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/orgs/${orgId}/devices/${deviceId}/facts`,
+      cookies: cookie,
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.hasConfig).toBe(true);
+    expect(body.facts.osVersion).toBe('15.2(4)M6');
+    expect(body.facts.inventory).toHaveLength(1);
+    expect(body.facts.inventory[0].name).toBe('Chassis');
+    expect(body.facts.inventory[0].description).toBe('Fake 2901');
+  });
+
   it('renaming a group path slug moves device files with history', async () => {
     const groups = await app.inject({
       method: 'GET',

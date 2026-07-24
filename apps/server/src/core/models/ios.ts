@@ -1,4 +1,63 @@
-import { defineDriver, dropLines, hideSecret } from '@fe2o3/driver-sdk';
+import {
+  type DeviceFacts,
+  defineDriver,
+  dropLines,
+  hideSecret,
+  type InventoryItem,
+} from '@fe2o3/driver-sdk';
+
+/** Extract a named `! --- <name> ---` section body from an assembled config. */
+function section(config: string, name: string): string {
+  const header = new RegExp(`^! --- ${name} ---$`, 'm');
+  const m = header.exec(config);
+  if (!m) return '';
+  const rest = config.slice(m.index + m[0].length);
+  const next = rest.search(/^! --- .+ ---$/m);
+  return (next === -1 ? rest : rest.slice(0, next)).trim();
+}
+
+/** Parse Cisco `show inventory` NAME/DESCR + PID/VID/SN pairs into a flat list. */
+function parseInventory(text: string): InventoryItem[] {
+  const items: InventoryItem[] = [];
+  const lines = text.split('\n');
+  for (let i = 0; i < lines.length; i++) {
+    const nd = /NAME:\s*"([^"]*)",\s*DESCR:\s*"([^"]*)"/.exec(lines[i] ?? '');
+    if (!nd) continue;
+    const pidLine = lines[i + 1] ?? '';
+    const pid = /PID:\s*(\S.*?)\s*,/.exec(pidLine)?.[1]?.trim();
+    const serial = /SN:\s*(\S+)/.exec(pidLine)?.[1]?.trim();
+    items.push({
+      name: nd[1] ?? '',
+      description: nd[2] || undefined,
+      pid: pid || undefined,
+      serial: serial || undefined,
+    });
+  }
+  return items;
+}
+
+/** Parse serial, model, IOS version and inventory from a stored IOS config. */
+function iosFacts(config: string): DeviceFacts | null {
+  const version = section(config, 'version');
+  const inventory = parseInventory(section(config, 'inventory'));
+
+  const osVersion = /\bVersion\s+([^\s,]+)/.exec(version)?.[1];
+  const model =
+    /^Model number\s*:\s*(\S+)/im.exec(version)?.[1] ??
+    /^cisco\s+(\S+).*\bprocessor\b/im.exec(version)?.[1] ??
+    inventory[0]?.pid;
+  const serial =
+    /^System serial number\s*:\s*(\S+)/im.exec(version)?.[1] ??
+    /^Processor board ID\s+(\S+)/im.exec(version)?.[1] ??
+    inventory[0]?.serial;
+
+  const facts: DeviceFacts = {};
+  if (serial) facts.serial = serial;
+  if (model) facts.model = model;
+  if (osVersion) facts.osVersion = osVersion;
+  if (inventory.length) facts.inventory = inventory;
+  return Object.keys(facts).length ? facts : null;
+}
 
 /** Cisco IOS / IOS-XE. Scrubbers ported from oxidized's ios.rb model. */
 export default defineDriver({
@@ -43,4 +102,5 @@ export default defineDriver({
       type: 'string',
     },
   ],
+  facts: iosFacts,
 });
