@@ -8,9 +8,14 @@ import {
   validatorCompiler,
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
+import { authPlugin } from './auth/plugin.js';
 import type { AppConfig } from './config.js';
 import type { Db } from './db/index.js';
+import { authRoutes } from './routes/auth.js';
 import { healthRoutes } from './routes/health.js';
+import { orgRoutes } from './routes/orgs.js';
+import { setupRoutes } from './routes/setup.js';
+import { userRoutes } from './routes/users.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -54,7 +59,13 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   });
   await app.register(scalarApiReference, { routePrefix: '/api/docs' });
 
+  await app.register(authPlugin);
+
   await app.register(healthRoutes, { prefix: '/api/v1' });
+  await app.register(setupRoutes, { prefix: '/api/v1' });
+  await app.register(authRoutes, { prefix: '/api/v1' });
+  await app.register(userRoutes, { prefix: '/api/v1' });
+  await app.register(orgRoutes, { prefix: '/api/v1' });
 
   return app;
 }

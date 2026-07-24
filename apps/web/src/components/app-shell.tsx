@@ -1,15 +1,20 @@
-import { Link, Outlet } from '@tanstack/react-router';
+import { useQuery } from '@tanstack/react-query';
+import { Link, Navigate, Outlet, useNavigate } from '@tanstack/react-router';
 import {
   Activity,
   KeyRound,
   LayoutDashboard,
+  LogOut,
   Moon,
   Router,
   Settings,
   Sun,
+  User,
   Users,
   Webhook,
 } from 'lucide-react';
+import { api, post } from '@/lib/api';
+import { currentOrgId, setCurrentOrgId, useInvalidateSession, useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -41,6 +46,38 @@ function ThemeToggle() {
 }
 
 export function AppShell() {
+  const session = useSession();
+  const invalidate = useInvalidateSession();
+  const navigate = useNavigate();
+  const setupStatus = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => api<{ needsSetup: boolean }>('/setup/status'),
+    enabled: session.data === null,
+  });
+
+  if (session.isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center text-muted-foreground">
+        Loading…
+      </div>
+    );
+  }
+  if (session.data === null) {
+    if (setupStatus.data?.needsSetup) return <Navigate to="/setup" />;
+    if (setupStatus.data) return <Navigate to="/login" />;
+    return null;
+  }
+
+  const user = session.data;
+  if (!user) return null;
+  const orgId = currentOrgId(user);
+
+  const logout = async () => {
+    await post('/auth/logout');
+    await invalidate();
+    navigate({ to: '/login' });
+  };
+
   return (
     <div className="flex min-h-screen">
       <aside className="flex w-56 flex-col border-r border-border bg-card">
@@ -50,6 +87,24 @@ export function AppShell() {
           </div>
           <span className="font-semibold tracking-tight">fe2o3</span>
         </div>
+        {user.orgs.length > 0 && (
+          <div className="border-b border-border p-2">
+            <select
+              className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm"
+              value={orgId ?? ''}
+              onChange={(e) => {
+                setCurrentOrgId(e.target.value);
+                navigate({ to: '/' });
+              }}
+            >
+              {user.orgs.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         <nav className="flex-1 space-y-1 p-2">
           {nav.map(({ to, label, icon: Icon }) => (
             <Link
@@ -67,9 +122,29 @@ export function AppShell() {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center justify-between border-t border-border p-2 pl-4">
-          <span className="text-xs text-muted-foreground">v0.1.0</span>
-          <ThemeToggle />
+        <div className="space-y-1 border-t border-border p-2">
+          <Link
+            to="/profile"
+            className={cn(
+              'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground',
+              'hover:bg-accent hover:text-accent-foreground',
+              '[&.active]:bg-accent [&.active]:text-accent-foreground',
+            )}
+          >
+            <User className="size-4" />
+            <span className="truncate">{user.displayName || user.email}</span>
+          </Link>
+          <div className="flex items-center justify-between pl-1">
+            <button
+              type="button"
+              onClick={logout}
+              className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+            >
+              <LogOut className="size-4" />
+              Sign out
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
       <main className="flex-1 overflow-auto">
