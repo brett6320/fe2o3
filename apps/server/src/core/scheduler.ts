@@ -15,10 +15,14 @@ const MAX_BACKOFF_MS = 6 * 60 * 60 * 1000;
 // spread across this window instead of all firing on the first tick — so a
 // container restart doesn't kick off an immediate stampede of backups.
 const STARTUP_SPREAD_SEC = 300;
+// Hold off the first backup run for this long after boot, so the process, DB,
+// and network can settle before collection starts.
+const STARTUP_DELAY_MS = 60_000;
 
 export class Scheduler {
   private queue: PQueue;
   private timer: NodeJS.Timeout | null = null;
+  private startupTimer: NodeJS.Timeout | null = null;
   private inFlight = new Set<string>();
   /** Runs a prepared collection task — the worker pool when present, else inline. */
   private run: TaskRunner;
@@ -86,12 +90,20 @@ export class Scheduler {
       this.ctx.log?.warn?.({ err }, 'scheduler startup reschedule failed');
     }
 
-    this.timer = setInterval(() => void this.tick(), TICK_MS);
-    this.timer.unref();
-    void this.tick();
+    // Settle delay: don't run any backup for the first STARTUP_DELAY_MS after
+    // boot. The reschedule above already spread due work into the future; this
+    // also covers devices whose persisted next_run_at falls within the window.
+    const beginTicking = () => {
+      this.timer = setInterval(() => void this.tick(), TICK_MS);
+      this.timer.unref();
+      void this.tick();
+    };
+    this.startupTimer = setTimeout(beginTicking, STARTUP_DELAY_MS);
+    this.startupTimer.unref();
   }
 
   async stop() {
+    if (this.startupTimer) clearTimeout(this.startupTimer);
     if (this.timer) clearInterval(this.timer);
     this.queue.clear();
     await this.queue.onIdle();

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import type { FastifyInstance } from 'fastify';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Scheduler } from '../src/core/scheduler.js';
 import { devices } from '../src/db/schema.js';
 import { startFakeDevice } from './fixtures/fake-ssh-server.js';
@@ -218,4 +218,17 @@ describe('scheduler startup scheduling', () => {
       expect(at).toBeLessThanOrEqual(startedAt + 300_000 + 5_000);
     }
   }, 15000);
+
+  it('does not run a tick immediately on start (60s settle delay)', async () => {
+    const s = new Scheduler(
+      { db: app.db, config: app.config, registry: app.registry, bus: app.bus },
+      2,
+    );
+    const tick = vi.spyOn(s, 'tick').mockResolvedValue(undefined);
+    await s.start();
+    // The first collection is deferred past the startup window, so no tick
+    // fires synchronously on boot.
+    expect(tick).not.toHaveBeenCalled();
+    await s.stop();
+  });
 });
