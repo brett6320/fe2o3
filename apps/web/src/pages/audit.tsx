@@ -55,7 +55,7 @@ export function AuditPage() {
           </span>
         )}
       </div>
-      <div className="mt-6 overflow-hidden rounded-lg border border-border">
+      <div className="mt-6 overflow-x-auto rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>

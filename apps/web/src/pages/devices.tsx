@@ -49,6 +49,26 @@ export function statusDot(status: Device['lastStatus']) {
   );
 }
 
+function BackupButton({ deviceId, className }: { deviceId: string; className?: string }) {
+  const { orgId } = useOrg();
+  const qc = useQueryClient();
+  const backup = useMutation({
+    mutationFn: () =>
+      post<{ status: string; error?: string }>(`/orgs/${orgId}/devices/${deviceId}/backup`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['devices', orgId] }),
+  });
+  return (
+    <Button
+      variant="outline"
+      className={className}
+      disabled={backup.isPending}
+      onClick={() => backup.mutate()}
+    >
+      {backup.isPending ? 'Backing up…' : 'Backup now'}
+    </Button>
+  );
+}
+
 export function DevicesPage() {
   const { orgId, role } = useOrg();
   const qc = useQueryClient();
@@ -111,6 +131,7 @@ export function DevicesPage() {
     },
   });
 
+  const canBackup = role === 'admin' || role === 'operator';
   const groupName = (id: string) => groups.data?.find((g) => g.id === id)?.name ?? '—';
   const filtered = devices.data?.filter(
     (d) =>
@@ -120,7 +141,7 @@ export function DevicesPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Devices</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -130,7 +151,7 @@ export function DevicesPage() {
         <div className="flex items-center gap-2">
           <Input
             placeholder="Filter…"
-            className="w-48"
+            className="w-full sm:w-48"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -151,7 +172,7 @@ export function DevicesPage() {
               create.mutate();
             }}
           >
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="d-name">Name</Label>
                 <Input
@@ -247,7 +268,43 @@ export function DevicesPage() {
         </Card>
       )}
 
-      <div className="mt-6 overflow-hidden rounded-lg border border-border">
+      {/* Mobile: stacked cards */}
+      <div className="mt-6 space-y-3 md:hidden">
+        {filtered?.map((d) => (
+          <Card key={d.id} className="p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <Link
+                  to="/devices/$deviceId"
+                  params={{ deviceId: d.id }}
+                  className="flex items-center gap-2 font-medium text-primary"
+                >
+                  {statusDot(d.lastStatus)}
+                  <span className="truncate">{d.name}</span>
+                </Link>
+                <p className="mt-1 truncate font-mono text-xs text-muted-foreground">
+                  {d.host}
+                  {d.port ? `:${d.port}` : ''}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {d.modelId} · {groupName(d.groupId)}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Last backup:{' '}
+                  {d.lastBackupAt ? new Date(d.lastBackupAt).toLocaleString() : 'never'}
+                </p>
+              </div>
+              {canBackup && <BackupButton deviceId={d.id} className="shrink-0" />}
+            </div>
+          </Card>
+        ))}
+        {filtered?.length === 0 && (
+          <p className="py-8 text-center text-sm text-muted-foreground">No devices</p>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="mt-6 hidden overflow-x-auto rounded-lg border border-border md:block">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-muted-foreground">
             <tr>
@@ -257,6 +314,7 @@ export function DevicesPage() {
               <th className="px-4 py-2 font-medium">Model</th>
               <th className="px-4 py-2 font-medium">Group</th>
               <th className="px-4 py-2 font-medium">Last backup</th>
+              {canBackup && <th className="px-4 py-2" />}
             </tr>
           </thead>
           <tbody className="divide-y divide-border bg-card">
@@ -272,20 +330,28 @@ export function DevicesPage() {
                     {d.name}
                   </Link>
                 </td>
-                <td className="px-4 py-2 font-mono text-xs">
+                <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">
                   {d.host}
                   {d.port ? `:${d.port}` : ''}
                 </td>
                 <td className="px-4 py-2">{d.modelId}</td>
                 <td className="px-4 py-2">{groupName(d.groupId)}</td>
-                <td className="px-4 py-2 text-muted-foreground">
+                <td className="whitespace-nowrap px-4 py-2 text-muted-foreground">
                   {d.lastBackupAt ? new Date(d.lastBackupAt).toLocaleString() : 'never'}
                 </td>
+                {canBackup && (
+                  <td className="px-4 py-2 text-right">
+                    <BackupButton deviceId={d.id} />
+                  </td>
+                )}
               </tr>
             ))}
             {filtered?.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                <td
+                  colSpan={canBackup ? 7 : 6}
+                  className="px-4 py-8 text-center text-muted-foreground"
+                >
                   No devices
                 </td>
               </tr>

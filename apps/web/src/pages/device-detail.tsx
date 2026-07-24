@@ -127,27 +127,31 @@ export function DeviceDetailPage() {
 
   return (
     <div className="p-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
             {statusDot(d.lastStatus)}
-            <h1 className="text-2xl font-semibold tracking-tight">{d.name}</h1>
+            <h1 className="truncate text-2xl font-semibold tracking-tight">{d.name}</h1>
           </div>
-          <p className="mt-1 font-mono text-sm text-muted-foreground">
+          <p className="mt-1 break-all font-mono text-sm text-muted-foreground">
             {d.host}
             {d.port ? `:${d.port}` : ''} · {d.modelId} · {d.protocol}
           </p>
           {d.lastError && <p className="mt-1 text-sm text-destructive">{d.lastError}</p>}
         </div>
         {(role === 'admin' || role === 'operator') && (
-          <Button onClick={() => backup.mutate()} disabled={backup.isPending}>
+          <Button
+            className="w-full sm:w-auto"
+            onClick={() => backup.mutate()}
+            disabled={backup.isPending}
+          >
             {backup.isPending ? 'Backing up…' : 'Backup now'}
           </Button>
         )}
       </div>
       {backup.data?.error && <ErrorText>{backup.data.error}</ErrorText>}
 
-      <div className="mt-6 flex gap-1 border-b border-border">
+      <div className="mt-6 flex gap-1 overflow-x-auto border-b border-border">
         {(
           [
             ...(['config', 'versions', 'jobs'] as const),
@@ -159,7 +163,7 @@ export function DeviceDetailPage() {
             type="button"
             onClick={() => setTab(t)}
             className={cn(
-              'border-b-2 px-4 py-2 text-sm capitalize',
+              'whitespace-nowrap border-b-2 px-4 py-2 text-sm capitalize',
               tab === t
                 ? 'border-primary font-medium text-foreground'
                 : 'border-transparent text-muted-foreground hover:text-foreground',
@@ -245,42 +249,48 @@ export function DeviceDetailPage() {
 
       {tab === 'jobs' && (
         <Card className="mt-4 p-0">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-muted-foreground">
-              <tr>
-                <th className="px-4 py-2 font-medium">When</th>
-                <th className="px-4 py-2 font-medium">Trigger</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Commit</th>
-                <th className="px-4 py-2 font-medium">Error</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {jobs.data?.map((j) => (
-                <tr
-                  key={j.id}
-                  className={cn(role !== 'readonly' && 'cursor-pointer hover:bg-accent/50')}
-                  onClick={() => role !== 'readonly' && setOpenJob(openJob === j.id ? null : j.id)}
-                >
-                  <td className="px-4 py-2">{new Date(j.createdAt).toLocaleString()}</td>
-                  <td className="px-4 py-2">{j.trigger}</td>
-                  <td
-                    className={cn(
-                      'px-4 py-2',
-                      j.status === 'success' && 'text-success',
-                      j.status === 'failed' && 'text-destructive',
-                    )}
-                  >
-                    {j.status}
-                  </td>
-                  <td className="px-4 py-2 font-mono text-xs">
-                    {j.commitSha ? j.commitSha.slice(0, 8) : '—'}
-                  </td>
-                  <td className="max-w-md truncate px-4 py-2 text-destructive">{j.error ?? ''}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 font-medium">When</th>
+                  <th className="px-4 py-2 font-medium">Trigger</th>
+                  <th className="px-4 py-2 font-medium">Status</th>
+                  <th className="px-4 py-2 font-medium">Commit</th>
+                  <th className="px-4 py-2 font-medium">Error</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {jobs.data?.map((j) => (
+                  <tr
+                    key={j.id}
+                    className={cn(role !== 'readonly' && 'cursor-pointer hover:bg-accent/50')}
+                    onClick={() =>
+                      role !== 'readonly' && setOpenJob(openJob === j.id ? null : j.id)
+                    }
+                  >
+                    <td className="px-4 py-2">{new Date(j.createdAt).toLocaleString()}</td>
+                    <td className="px-4 py-2">{j.trigger}</td>
+                    <td
+                      className={cn(
+                        'px-4 py-2',
+                        j.status === 'success' && 'text-success',
+                        j.status === 'failed' && 'text-destructive',
+                      )}
+                    >
+                      {j.status}
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">
+                      {j.commitSha ? j.commitSha.slice(0, 8) : '—'}
+                    </td>
+                    <td className="max-w-md truncate px-4 py-2 text-destructive">
+                      {j.error ?? ''}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
           {openJob && jobDetail.data?.log && (
             <div className="border-t border-border">
               <div className="px-4 py-2 text-sm text-muted-foreground">Session transcript</div>
@@ -374,7 +384,7 @@ function DeviceEditForm({ device }: { device: Device }) {
           save.mutate();
         }}
       >
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="e-name">Name</Label>
             <Input
