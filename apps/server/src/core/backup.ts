@@ -62,7 +62,7 @@ export async function backupDevice(
   if (!job) throw new Error('failed to create job');
   await db.update(devices).set({ lastStatus: 'running' }).where(eq(devices.id, device.id));
 
-  const dec = (v: string | null) => (v ? decryptSecret(v, config.secretKey) : undefined);
+  const dec = (v: string | null) => (v ? decryptSecret(v, config.keyring) : undefined);
 
   try {
     const loginSuffix =
@@ -83,7 +83,7 @@ export async function backupDevice(
         passphrase: dec(cred.sshKeyPassphraseEnc),
       },
       enablePassword:
-        deviceVarSecret(device.vars, 'enablePassword', config.secretKey) ??
+        deviceVarSecret(device.vars, 'enablePassword', config.keyring) ??
         dec(cred.enablePasswordEnc),
     });
 

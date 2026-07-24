@@ -1,8 +1,8 @@
-import { randomBytes } from 'node:crypto';
 import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { buildApp } from '../src/app.js';
+import { loadKeyring } from '../src/auth/keyring.js';
 import type { AppConfig } from '../src/config.js';
 import { createDb } from '../src/db/index.js';
 
@@ -13,7 +13,7 @@ export async function buildTestApp() {
     port: 0,
     host: '127.0.0.1',
     dataDir,
-    secretKey: randomBytes(32),
+    keyring: loadKeyring(dataDir),
     databaseUrl: undefined,
     pgliteDir: 'memory://',
     reposDir: join(dataDir, 'repos'),

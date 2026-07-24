@@ -110,7 +110,7 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
           credentialId: b.credentialId ?? null,
           intervalSec: b.intervalSec ?? null,
           enabled: b.enabled,
-          vars: sealDeviceVars(b.vars, undefined, app.config.secretKey),
+          vars: sealDeviceVars(b.vars, undefined, app.config.keyring),
           nextRunAt: new Date(),
         })
         .returning();
@@ -184,7 +184,7 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
         if (b[key] !== undefined) patch[key] = b[key];
       }
       if (b.vars !== undefined) {
-        patch.vars = sealDeviceVars(b.vars, row.device.vars, app.config.secretKey);
+        patch.vars = sealDeviceVars(b.vars, row.device.vars, app.config.keyring);
       }
       const [device] = await app.db
         .update(devices)

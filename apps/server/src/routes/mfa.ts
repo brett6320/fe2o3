@@ -55,7 +55,7 @@ export const mfaRoutes: FastifyPluginAsyncZod = async (app) => {
       const secret = generateSecret();
       await app.db
         .update(users)
-        .set({ totpSecretEnc: encryptSecret(secret, app.config.secretKey), totpEnabled: false })
+        .set({ totpSecretEnc: encryptSecret(secret, app.config.keyring), totpEnabled: false })
         .where(eq(users.id, auth.userId));
       const otpauthUrl = generateURI({ issuer: 'fe2o3', label: auth.email, secret });
       return { otpauthUrl, qrDataUrl: await toDataURL(otpauthUrl) };
@@ -83,7 +83,7 @@ export const mfaRoutes: FastifyPluginAsyncZod = async (app) => {
           message: 'No pending enrollment',
         } as never);
       }
-      const secret = decryptSecret(user.totpSecretEnc, app.config.secretKey);
+      const secret = decryptSecret(user.totpSecretEnc, app.config.keyring);
       if (!verifySync({ secret, token: req.body.code, epochTolerance: 1 }).valid) {
         return reply
           .code(400)
@@ -113,7 +113,7 @@ export const mfaRoutes: FastifyPluginAsyncZod = async (app) => {
           .code(400)
           .send({ statusCode: 400, error: 'Bad Request', message: 'TOTP not enabled' } as never);
       }
-      const secret = decryptSecret(user.totpSecretEnc, app.config.secretKey);
+      const secret = decryptSecret(user.totpSecretEnc, app.config.keyring);
       if (!verifySync({ secret, token: req.body.code, epochTolerance: 1 }).valid) {
         return reply
           .code(400)
@@ -153,7 +153,7 @@ export const mfaRoutes: FastifyPluginAsyncZod = async (app) => {
           .code(400)
           .send({ statusCode: 400, error: 'Bad Request', message: 'TOTP not enrolled' } as never);
       }
-      const secret = decryptSecret(user.totpSecretEnc, app.config.secretKey);
+      const secret = decryptSecret(user.totpSecretEnc, app.config.keyring);
       if (!verifySync({ secret, token: req.body.code, epochTolerance: 1 }).valid) {
         return reply
           .code(400)

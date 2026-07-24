@@ -73,7 +73,7 @@ export const inventoryRoutes: FastifyPluginAsyncZod = async (app) => {
       const { name, username, password, enablePassword, sshPrivateKey, sshKeyPassphrase } =
         req.body;
       const enc = (v: string | undefined) =>
-        v === undefined || v === '' ? null : encryptSecret(v, app.config.secretKey);
+        v === undefined || v === '' ? null : encryptSecret(v, app.config.keyring);
       const [created] = await app.db
         .insert(credentials)
         .values({
@@ -108,7 +108,7 @@ export const inventoryRoutes: FastifyPluginAsyncZod = async (app) => {
     async (req, reply) => {
       const patch: Record<string, unknown> = {};
       const b = req.body;
-      const enc = (v: string) => (v === '' ? null : encryptSecret(v, app.config.secretKey));
+      const enc = (v: string) => (v === '' ? null : encryptSecret(v, app.config.keyring));
       if (b.name !== undefined) patch.name = b.name;
       if (b.username !== undefined) patch.username = b.username;
       if (b.password !== undefined) patch.passwordEnc = enc(b.password);

@@ -21,12 +21,32 @@ Everything else is configured in the web UI; these bootstrap the process.
 | `FE2O3_HOST` | `0.0.0.0` | Listen address |
 | `FE2O3_DATA_DIR` | `./.data` | Data directory: git repos, PGlite database, secret key, plugin drivers |
 | `FE2O3_DATABASE_URL` | *(unset)* | PostgreSQL connection string. Unset ⇒ embedded PGlite in the data dir |
-| `FE2O3_SECRET_KEY` | auto-generated | 64 hex chars (32 bytes) — AES-256-GCM key for credentials at rest. Auto-generated into `<dataDir>/secret.key` on first boot if unset |
+| `FE2O3_SECRET_KEY` | auto-generated | Optional initial key, 64 hex chars (32 bytes). If unset, a keyring is generated at `<dataDir>/keys.json` on first boot |
 | `FE2O3_BASE_URL` | `http://localhost:8442` | Public URL — **required for passkeys** (WebAuthn RP ID) |
 | `FE2O3_LOG_LEVEL` | `info` | pino log level |
 
-> **Back up** `FE2O3_SECRET_KEY` / `<dataDir>/secret.key`. Without it, stored
-> device credentials and TOTP secrets cannot be decrypted.
+> **Back up** `<dataDir>/keys.json` (or `FE2O3_SECRET_KEY` if you pinned it).
+> Without the keyring, stored device credentials and TOTP secrets cannot be
+> decrypted.
+
+### Encryption keyring & rotation
+
+Secrets at rest (device credentials, TOTP secrets, device enable-password
+vars) are AES-256-GCM encrypted with a versioned keyring at
+`<dataDir>/keys.json`. Each stored blob names the key that sealed it. To
+rotate (superadmin):
+
+```bash
+curl -X POST -H "Authorization: Bearer $ADMIN_KEY" \
+  https://fe2o3.example.com/api/v1/admin/keys/rotate
+# → {"activeKeyId":"2","rotated":{"credentialSecrets":8,"totpSecrets":2,"deviceVars":1}}
+```
+
+The new key is persisted before any data is re-encrypted, so an interruption
+at any point leaves everything decryptable. Once rotation succeeds, retire the
+old key with `DELETE /api/v1/admin/keys/<id>`; `GET /api/v1/admin/keys` lists
+key ids and the active one. Legacy single-key installs (`secret.key`) migrate
+into the keyring automatically on first boot.
 
 ## Database
 
@@ -56,29 +76,9 @@ docker run -d --name fe2o3 \
   fe2o3
 ```
 
-docker-compose:
-
-```yaml
-services:
-  fe2o3:
-    build: .
-    ports: ["8442:8442"]
-    volumes: ["fe2o3-data:/data"]
-    environment:
-      FE2O3_BASE_URL: https://fe2o3.example.com
-      FE2O3_DATABASE_URL: postgres://fe2o3:pw@db:5432/fe2o3
-    depends_on: [db]
-  db:
-    image: postgres:16
-    environment:
-      POSTGRES_USER: fe2o3
-      POSTGRES_PASSWORD: pw
-      POSTGRES_DB: fe2o3
-    volumes: ["pg-data:/var/lib/postgresql/data"]
-volumes:
-  fe2o3-data:
-  pg-data:
-```
+For docker-compose, use the Traefik template below — it keeps all secrets in
+gitignored external files (`fe2o3.env`, `secrets/db_password`) rather than in
+the compose file itself.
 
 ## Bare Node
 
@@ -143,12 +143,17 @@ A ready-made compose template is provided at
 external `traefik` network, a `letsencrypt-prd` cert resolver, and a global
 HTTP→HTTPS redirect on the `web` entrypoint (so only the `websecure` router is
 declared). The template includes a buffering middleware so SSE events flush
-through Traefik immediately. Edit the hostname, network name, and postgres
-password, then:
+through Traefik immediately. Edit the hostname and network name, then provide
+the secret files — they are kept out of the compose file:
 
 ```bash
+cp fe2o3.env.example fe2o3.env                     # database URL (contains the db password)
+cp secrets/db_password.example secrets/db_password # postgres password (Docker secret)
+# edit both — the password must match in each — then:
 docker compose -f docker-compose.traefik.yml up -d
 ```
+
+Both files are gitignored; only the `.example` templates are committed.
 
 ## Backing up fe2o3 itself
 
@@ -156,7 +161,7 @@ Three things matter:
 
 1. The database (pg_dump, or the `<dataDir>/pg` directory in embedded mode)
 2. `<dataDir>/repos/` — the per-org git repositories with all config history
-3. `<dataDir>/secret.key` (or the `FE2O3_SECRET_KEY` value)
+3. `<dataDir>/keys.json` — the encryption keyring
 
 The git repos are plain repositories — you can also `git remote add` a mirror
 inside each and push from cron for off-site copies.

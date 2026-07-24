@@ -1,4 +1,5 @@
 import { decryptSecret, encryptSecret } from '../auth/crypto.js';
+import type { Keyring } from '../auth/keyring.js';
 
 /**
  * Per-device `vars` that hold secrets. Plaintext arrives from the API as
@@ -15,7 +16,7 @@ type Vars = Record<string, unknown>;
  * semantics — clients never see the ciphertext to send it back).
  * An empty string clears the secret.
  */
-export function sealDeviceVars(incoming: Vars, existing: Vars | undefined, key: Buffer): Vars {
+export function sealDeviceVars(incoming: Vars, existing: Vars | undefined, keyring: Keyring): Vars {
   const out: Vars = { ...incoming };
   for (const name of SECRET_VARS) {
     const encKey = `${name}Enc`;
@@ -23,7 +24,7 @@ export function sealDeviceVars(incoming: Vars, existing: Vars | undefined, key: 
     const value = out[name];
     if (typeof value === 'string') {
       delete out[name];
-      if (value !== '') out[encKey] = encryptSecret(value, key);
+      if (value !== '') out[encKey] = encryptSecret(value, keyring);
       // '' ⇒ cleared: neither plaintext nor Enc kept
     } else if (existing && typeof existing[encKey] === 'string') {
       out[encKey] = existing[encKey];
@@ -49,8 +50,8 @@ export function publicDeviceVars(vars: Vars): Vars {
 export function deviceVarSecret(
   vars: Vars,
   name: (typeof SECRET_VARS)[number],
-  key: Buffer,
+  keyring: Keyring,
 ): string | undefined {
   const enc = vars[`${name}Enc`];
-  return typeof enc === 'string' ? decryptSecret(enc, key) : undefined;
+  return typeof enc === 'string' ? decryptSecret(enc, keyring) : undefined;
 }

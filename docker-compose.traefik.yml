@@ -4,7 +4,14 @@
 #   - cert resolver "letsencrypt-prd"
 #   - the "web" (HTTP) entrypoint already redirects to "websecure" globally,
 #     so only the websecure router is declared here
-# Replace fe2o3.example.com and the postgres password before use.
+#
+# No secrets live in this file:
+#   - app secrets (database URL with password) come from ./fe2o3.env
+#     → copy fe2o3.env.example to fe2o3.env  (gitignored)
+#   - the postgres password is a Docker secret read from ./secrets/db_password
+#     → copy secrets/db_password.example to secrets/db_password  (gitignored)
+# Keep the password in fe2o3.env's FE2O3_DATABASE_URL in sync with secrets/db_password.
+# Replace fe2o3.example.com before use.
 
 services:
   fe2o3:
@@ -13,10 +20,10 @@ services:
     restart: unless-stopped
     environment:
       FE2O3_BASE_URL: https://fe2o3.example.com   # required for passkeys (WebAuthn RP ID)
-      FE2O3_DATABASE_URL: postgres://fe2o3:change-me@db:5432/fe2o3
-      # FE2O3_SECRET_KEY: <64 hex chars>          # else auto-generated into /data/secret.key
+    env_file:
+      - fe2o3.env
     volumes:
-      - fe2o3-data:/data                          # git repos + secret key
+      - fe2o3-data:/data                          # git repos + keyring (keys.json)
     networks:
       - traefik
       - internal
@@ -40,8 +47,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: fe2o3
-      POSTGRES_PASSWORD: change-me
       POSTGRES_DB: fe2o3
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
     volumes:
       - pg-data:/var/lib/postgresql/data
     networks:
@@ -51,6 +60,10 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
 
 volumes:
   fe2o3-data:

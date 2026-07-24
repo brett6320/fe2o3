@@ -49,6 +49,7 @@ Admin (superadmin):
 | `GET/POST/PATCH/DELETE /users[/:id]` | user accounts |
 | `GET/POST/DELETE /orgs[/:orgId]` | organizations |
 | `GET/PATCH /settings` | instance settings |
+| `GET /admin/keys` · `POST /admin/keys/rotate` · `DELETE /admin/keys/:id` | encryption key rotation |
 
 Org-scoped (`/orgs/:orgId/...`, role in parentheses):
 
