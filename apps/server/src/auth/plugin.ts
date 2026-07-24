@@ -2,7 +2,8 @@ import type { OrgRole } from '@fe2o3/shared';
 import { and, eq, gt } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
-import { apiKeys, auditLog, orgMemberships, sessions, users } from '../db/schema.js';
+import { apiKeys, orgMemberships, sessions, users } from '../db/schema.js';
+import { appendAudit } from './audit-chain.js';
 import { sha256 } from './crypto.js';
 
 export const SESSION_COOKIE = 'fe2o3_session';
@@ -122,7 +123,7 @@ export const authPlugin = fp(async (app) => {
     if (!req.url.startsWith('/api/')) return;
     if (reply.statusCode >= 400) return;
     try {
-      await app.db.insert(auditLog).values({
+      await appendAudit(app.db, {
         userId: req.auth.userId,
         apiKeyId: req.auth.apiKey?.id ?? null,
         action: req.method,

@@ -1,11 +1,14 @@
 import { desc, eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { verifyChain } from '../auth/audit-chain.js';
 import { requireSuperadmin } from '../auth/plugin.js';
 import { auditLog, users } from '../db/schema.js';
 
 const auditEntrySchema = z.object({
   id: z.string(),
+  seq: z.number(),
+  entryHash: z.string().nullable(),
   userId: z.string().nullable(),
   userEmail: z.string().nullable(),
   apiKeyId: z.string().nullable(),
@@ -32,6 +35,8 @@ export const auditRoutes: FastifyPluginAsyncZod = async (app) => {
       app.db
         .select({
           id: auditLog.id,
+          seq: auditLog.seq,
+          entryHash: auditLog.entryHash,
           userId: auditLog.userId,
           userEmail: users.email,
           apiKeyId: auditLog.apiKeyId,
@@ -44,5 +49,24 @@ export const auditRoutes: FastifyPluginAsyncZod = async (app) => {
         .leftJoin(users, eq(auditLog.userId, users.id))
         .orderBy(desc(auditLog.createdAt))
         .limit(req.query.limit),
+  );
+
+  app.get(
+    '/audit/verify',
+    {
+      preHandler: requireSuperadmin,
+      schema: {
+        tags: ['audit'],
+        response: {
+          200: z.object({
+            ok: z.boolean(),
+            checked: z.number(),
+            legacy: z.number(),
+            firstInvalidSeq: z.number().nullable(),
+          }),
+        },
+      },
+    },
+    async () => verifyChain(app.db),
   );
 };

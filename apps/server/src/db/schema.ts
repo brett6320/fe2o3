@@ -1,4 +1,5 @@
 import {
+  bigserial,
   boolean,
   index,
   integer,
@@ -187,15 +188,20 @@ export const auditLog = pgTable(
   'audit_log',
   {
     id: id(),
+    /** Monotonic position in the hash chain. */
+    seq: bigserial('seq', { mode: 'number' }).notNull(),
     userId: text('user_id'),
     apiKeyId: text('api_key_id'),
     action: text('action').notNull(),
     resource: text('resource').notNull(),
     detail: jsonb('detail').$type<Record<string, unknown>>().notNull().default({}),
     ip: text('ip'),
+    /** sha256 of the previous entry's hash + this entry's canonical content. */
+    entryHash: text('entry_hash'),
+    prevHash: text('prev_hash'),
     ...timestamps,
   },
-  (t) => [index('audit_created').on(t.createdAt)],
+  (t) => [index('audit_created').on(t.createdAt), uniqueIndex('audit_seq').on(t.seq)],
 );
 
 export const hooks = pgTable('hooks', {

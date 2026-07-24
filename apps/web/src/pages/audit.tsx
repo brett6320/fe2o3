@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useSession } from '@/lib/session';
 
@@ -21,6 +22,13 @@ export function AuditPage() {
     enabled: isSuper,
   });
 
+  const verify = useMutation({
+    mutationFn: () =>
+      api<{ ok: boolean; checked: number; legacy: number; firstInvalidSeq: number | null }>(
+        '/audit/verify',
+      ),
+  });
+
   if (!isSuper) {
     return (
       <div className="p-6">
@@ -32,9 +40,21 @@ export function AuditPage() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-semibold tracking-tight">Audit log</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Every authenticated mutating API call, newest first
-      </p>
+      <div className="mt-1 flex items-center gap-3">
+        <p className="text-sm text-muted-foreground">
+          Every authenticated mutating API call, newest first — hash-chained for tamper evidence
+        </p>
+        <Button variant="outline" onClick={() => verify.mutate()} disabled={verify.isPending}>
+          Verify chain
+        </Button>
+        {verify.data && (
+          <span className={verify.data.ok ? 'text-sm text-success' : 'text-sm text-destructive'}>
+            {verify.data.ok
+              ? `Chain intact (${verify.data.checked} entries verified)`
+              : `TAMPERED — chain breaks at entry #${verify.data.firstInvalidSeq}`}
+          </span>
+        )}
+      </div>
       <div className="mt-6 overflow-hidden rounded-lg border border-border">
         <table className="w-full text-sm">
           <thead className="bg-muted/50 text-left text-muted-foreground">
