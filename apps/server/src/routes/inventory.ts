@@ -255,13 +255,11 @@ export const inventoryRoutes: FastifyPluginAsyncZod = async (app) => {
           .where(and(eq(groups.orgId, req.params.orgId), eq(groups.pathSlug, req.body.pathSlug)))
           .limit(1);
         if (dupe) {
-          return reply
-            .code(409)
-            .send({
-              statusCode: 409,
-              error: 'Conflict',
-              message: 'Path slug already in use',
-            } as never);
+          return reply.code(409).send({
+            statusCode: 409,
+            error: 'Conflict',
+            message: 'Path slug already in use',
+          } as never);
         }
         const [org] = await app.db
           .select({ slug: orgs.slug })
