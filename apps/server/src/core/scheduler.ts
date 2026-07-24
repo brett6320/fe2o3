@@ -1,4 +1,4 @@
-import { and, eq, isNull, lte, ne, or } from 'drizzle-orm';
+import { and, eq, isNull, lte, ne, or, sql } from 'drizzle-orm';
 import PQueue from 'p-queue';
 import type { AppConfig } from '../config.js';
 import type { Db } from '../db/index.js';
@@ -9,6 +9,10 @@ import type { DriverRegistry } from './models/registry.js';
 
 const TICK_MS = 5_000;
 const MAX_BACKOFF_MS = 6 * 60 * 60 * 1000;
+// On startup, devices that are already due (or were never scheduled) are
+// spread across this window instead of all firing on the first tick — so a
+// container restart doesn't kick off an immediate stampede of backups.
+const STARTUP_SPREAD_SEC = 300;
 
 export class Scheduler {
   private queue: PQueue;
@@ -21,7 +25,7 @@ export class Scheduler {
       config: AppConfig;
       registry: DriverRegistry;
       bus: EventBus;
-      log?: { warn?: (o: unknown, m: string) => void };
+      log?: { warn?: (o: unknown, m: string) => void; info?: (o: unknown, m: string) => void };
     },
     concurrency = 20,
   ) {
@@ -42,6 +46,34 @@ export class Scheduler {
         .where(or(eq(jobs.status, 'running'), eq(jobs.status, 'queued')));
     } catch (err) {
       this.ctx.log?.warn?.({ err }, 'scheduler startup recovery failed');
+    }
+
+    // Persisted schedules (a future next_run_at) are honored as-is across a
+    // restart. Only devices that are currently due or have never been
+    // scheduled get re-anchored to a jittered near-future slot, so restarting
+    // the container doesn't trigger an immediate wave of backups. Best-effort:
+    // a failure here must not stop the scheduler from starting.
+    try {
+      const rescheduled = await this.ctx.db
+        .update(devices)
+        .set({
+          nextRunAt: sql`now() + random() * ${STARTUP_SPREAD_SEC} * interval '1 second'`,
+        })
+        .where(
+          and(
+            eq(devices.enabled, true),
+            or(isNull(devices.nextRunAt), lte(devices.nextRunAt, new Date())),
+          ),
+        )
+        .returning({ id: devices.id });
+      if (rescheduled.length > 0) {
+        this.ctx.log?.info?.(
+          { count: rescheduled.length, spreadSec: STARTUP_SPREAD_SEC },
+          'spread due/unscheduled devices over startup window',
+        );
+      }
+    } catch (err) {
+      this.ctx.log?.warn?.({ err }, 'scheduler startup reschedule failed');
     }
 
     this.timer = setInterval(() => void this.tick(), TICK_MS);
