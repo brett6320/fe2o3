@@ -53,6 +53,10 @@ function isTransientDbError(err: unknown): boolean {
 export async function createDb(opts: CreateDbOptions): Promise<Db> {
   if (opts.databaseUrl) {
     const pool = new pg.Pool({ connectionString: opts.databaseUrl });
+    // Idle-client errors (e.g. Postgres closing a connection during a restart)
+    // are emitted on the pool; without a listener Node treats them as unhandled
+    // and crashes. Log and let the pool re-establish connections on demand.
+    pool.on('error', (err) => opts.log?.warn?.({ err }, 'postgres pool client error'));
     const db = drizzlePg(pool, { schema });
     const retries = opts.connectRetries ?? 15;
     const delay = opts.connectRetryDelayMs ?? 2000;
