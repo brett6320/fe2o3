@@ -42,7 +42,7 @@ export function SetupPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <h1 className="text-lg font-semibold">Welcome to fe2o3</h1>
+        <h1 className="text-lg font-semibold">Welcome to Fe2O3</h1>
         <p className="mt-1 mb-6 text-sm text-muted-foreground">
           Create the first administrator account and your organization.
         </p>
