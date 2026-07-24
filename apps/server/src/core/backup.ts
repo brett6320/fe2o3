@@ -3,6 +3,7 @@ import { decryptSecret } from '../auth/crypto.js';
 import type { AppConfig } from '../config.js';
 import type { Db } from '../db/index.js';
 import { credentials, devices, groups, jobs, orgs } from '../db/schema.js';
+import { deviceVarSecret } from './device-vars.js';
 import { runBackup } from './executor.js';
 import { getOrgRepo } from './git/repo.js';
 import type { DriverRegistry } from './models/registry.js';
@@ -82,9 +83,8 @@ export async function backupDevice(
         passphrase: dec(cred.sshKeyPassphraseEnc),
       },
       enablePassword:
-        typeof device.vars.enablePassword === 'string'
-          ? device.vars.enablePassword
-          : dec(cred.enablePasswordEnc),
+        deviceVarSecret(device.vars, 'enablePassword', config.secretKey) ??
+        dec(cred.enablePasswordEnc),
     });
 
     const repo = await getOrgRepo(config.reposDir, org.slug);

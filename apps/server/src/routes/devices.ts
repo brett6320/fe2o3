@@ -4,6 +4,7 @@ import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { requireOrgRole } from '../auth/plugin.js';
 import { backupDevice } from '../core/backup.js';
+import { publicDeviceVars, sealDeviceVars } from '../core/device-vars.js';
 import { getOrgRepo } from '../core/git/repo.js';
 import { devices, groups, jobs, orgs } from '../db/schema.js';
 import { respond } from './replies.js';
@@ -29,7 +30,10 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
       preHandler: requireOrgRole('readonly'),
       schema: { tags: ['devices'], params: orgParams, response: { 200: z.array(deviceSchema) } },
     },
-    async (req) => app.db.select().from(devices).where(eq(devices.orgId, req.params.orgId)),
+    async (req) => {
+      const rows = await app.db.select().from(devices).where(eq(devices.orgId, req.params.orgId));
+      return rows.map((d) => ({ ...d, vars: publicDeviceVars(d.vars) }));
+    },
   );
 
   app.get(
@@ -45,7 +49,7 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
           .code(404)
           .send({ statusCode: 404, error: 'Not Found', message: 'Device not found' } as never);
       }
-      return row.device;
+      return { ...row.device, vars: publicDeviceVars(row.device.vars) };
     },
   );
 
@@ -106,11 +110,11 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
           credentialId: b.credentialId ?? null,
           intervalSec: b.intervalSec ?? null,
           enabled: b.enabled,
-          vars: b.vars,
+          vars: sealDeviceVars(b.vars, undefined, app.config.secretKey),
           nextRunAt: new Date(),
         })
         .returning();
-      return device;
+      return device ? { ...device, vars: publicDeviceVars(device.vars) } : device;
     },
   );
 
@@ -179,12 +183,15 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
       ] as const) {
         if (b[key] !== undefined) patch[key] = b[key];
       }
+      if (b.vars !== undefined) {
+        patch.vars = sealDeviceVars(b.vars, row.device.vars, app.config.secretKey);
+      }
       const [device] = await app.db
         .update(devices)
         .set(patch)
         .where(eq(devices.id, req.params.id))
         .returning();
-      return device;
+      return device ? { ...device, vars: publicDeviceVars(device.vars) } : device;
     },
   );
 
