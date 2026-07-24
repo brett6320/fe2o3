@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { runBackup } from '../src/core/executor.js';
 import cradlepoint from '../src/core/models/cradlepoint.js';
-import digi from '../src/core/models/digi.js';
+import digiDal from '../src/core/models/digi-dal.js';
 import { startFakeDevice } from './fixtures/fake-ssh-server.js';
 
 // These exercise the driver plumbing (session, section assembly, scrubbers)
@@ -53,7 +53,7 @@ describe('digi DAL driver', () => {
     });
     try {
       const result = await runBackup({
-        driver: digi,
+        driver: digiDal,
         connect: { host: '127.0.0.1', port: fake.port, username: 'admin', password: 'pw' },
       });
       expect(result.configText).toContain('Digi WR64');

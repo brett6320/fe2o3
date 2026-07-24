@@ -9,7 +9,7 @@ import { defineDriver, dropLines, hideSecret } from '@fe2o3/driver-sdk';
  * Adjust `prompt` / `commands` if your firmware differs.
  */
 export default defineDriver({
-  id: 'digi',
+  id: 'digi_dal',
   displayName: 'Digi Accelerated Linux (DAL)',
   // e.g. `admin@hostname>` or `hostname#`
   prompt: /[>#]\s?$/m,
