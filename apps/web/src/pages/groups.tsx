@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
 import { api, del, patch, post } from '@/lib/api';
-import { useOrg } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 
 interface Group {
   id: string;

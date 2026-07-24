@@ -19,7 +19,8 @@ import {
   Webhook,
 } from 'lucide-react';
 import { api, post } from '@/lib/api';
-import { currentOrgId, setCurrentOrgId, useInvalidateSession, useSession } from '@/lib/session';
+import { useOrg } from '@/lib/org-context';
+import { useInvalidateSession, useSession } from '@/lib/session';
 import { useTheme } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
@@ -55,6 +56,26 @@ function ThemeToggle() {
   );
 }
 
+function OrgSwitcher() {
+  const { orgId, orgs, setOrgId } = useOrg();
+  if (orgs.length <= 1) return null;
+  return (
+    <div className="border-b border-border p-2">
+      <select
+        className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm"
+        value={orgId ?? ''}
+        onChange={(e) => setOrgId(e.target.value)}
+      >
+        {orgs.map((o) => (
+          <option key={o.id} value={o.id}>
+            {o.name}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 export function AppShell() {
   const session = useSession();
   const invalidate = useInvalidateSession();
@@ -80,7 +101,6 @@ export function AppShell() {
 
   const user = session.data;
   if (!user) return null;
-  const orgId = currentOrgId(user);
 
   const logout = async () => {
     await post('/auth/logout');
@@ -97,24 +117,7 @@ export function AppShell() {
           </div>
           <span className="font-semibold tracking-tight">fe2o3</span>
         </div>
-        {user.orgs.length > 0 && (
-          <div className="border-b border-border p-2">
-            <select
-              className="w-full rounded-md border border-input bg-transparent px-2 py-1.5 text-sm"
-              value={orgId ?? ''}
-              onChange={(e) => {
-                setCurrentOrgId(e.target.value);
-                navigate({ to: '/' });
-              }}
-            >
-              {user.orgs.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        )}
+        <OrgSwitcher />
         <nav className="flex-1 space-y-1 p-2">
           {nav.map(({ to, label, icon: Icon }) => (
             <Link

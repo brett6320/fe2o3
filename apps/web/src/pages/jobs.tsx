@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { api } from '@/lib/api';
 import { useOrgEvents } from '@/lib/events';
-import { useOrg } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import { cn } from '@/lib/utils';
 
 interface Job {

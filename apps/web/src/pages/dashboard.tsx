@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { Card } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useOrgEvents } from '@/lib/events';
-import { useOrg } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import { cn } from '@/lib/utils';
 
 interface Stats {

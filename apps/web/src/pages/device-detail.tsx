@@ -3,7 +3,7 @@ import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
 import { api, patch, post } from '@/lib/api';
-import { useOrg } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 import { cn } from '@/lib/utils';
 import { type Device, statusDot } from './devices';
 
