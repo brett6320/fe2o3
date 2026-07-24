@@ -1,0 +1,34 @@
+{
+  "name": "@fe2o3/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@fe2o3/shared": "workspace:*",
+    "@simplewebauthn/browser": "^13.3.0",
+    "@tanstack/react-query": "^5.90.5",
+    "@tanstack/react-router": "^1.132.41",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.545.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "tailwind-merge": "^3.3.1"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.1.16",
+    "@types/react": "^19.2.13",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.4",
+    "tailwindcss": "^4.1.16",
+    "typescript": "^5.9.3",
+    "vite": "^7.2.7",
+    "vitest": "^3.2.4"
+  }
+}

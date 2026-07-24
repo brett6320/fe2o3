@@ -1,0 +1,105 @@
+# User guide
+
+## First boot: the setup wizard
+
+Browse to fe2o3 and you'll land on `/setup`. Create the first account — it
+becomes the **superadmin** — and your first **organization**. You're signed in
+when the wizard finishes.
+
+## Concepts
+
+- **Organization (org)** — a tenant. Devices, groups, credentials, hooks, and
+  job history are all org-scoped, and each org has its own git repository.
+- **Membership & roles** — users are global accounts; access is granted per org:
+  - `readonly` — view devices, configs, versions, diffs, jobs
+  - `operator` — readonly + trigger backups, view job transcripts
+  - `admin` — operator + manage devices, groups, credentials, hooks, members
+- **Superadmin** — a global flag; manages users, orgs, and instance settings,
+  and implicitly has admin in every org.
+- **Group** — a set of devices; maps to a subdirectory in the org's git repo and
+  provides default credential and backup interval.
+- **Credential** — login secrets (username/password, enable password, SSH key).
+  Encrypted at rest; **write-only** — values are never returned by UI or API.
+- **Model / driver** — how fe2o3 talks to a vendor's CLI (see Models page).
+
+Use the org switcher at the top of the sidebar if you belong to several orgs.
+
+## Backing up your first device
+
+1. **Credentials** → *Add credential* — the device login.
+2. **Groups** → *Add group* — e.g. `Core` with path slug `core`; pick the
+   default credential and interval.
+3. **Devices** → *Add device* — name (becomes the git filename), host, port,
+   model, group.
+4. Open the device page → **Backup now**.
+
+The **Config** tab shows the latest capture with a version dropdown. The
+**Versions** tab lets you pick two versions and see a colorized diff. The
+**Jobs** tab lists every run; admins/operators can expand a job to read the
+full session transcript (secrets scrubbed).
+
+Backups then run automatically on the device interval (or its group's default).
+Failures back off exponentially (interval × 2ⁿ, capped at 6 h) and show on the
+dashboard.
+
+### CSV bulk import
+
+**Devices → API** `POST /orgs/:orgId/devices/import` with a CSV body:
+
+```csv
+name,host,model,group,port,protocol
+core-sw1,10.0.0.1,ios,core
+edge-r1,10.0.1.1,routeros,edge,22
+old-switch,10.0.2.9,ios,legacy,23,telnet
+```
+
+`group` is the group path slug. The response reports created rows and per-line
+skip reasons.
+
+## Hooks (notifications)
+
+**Hooks** → *Add hook*:
+
+- **Webhook** — JSON POST to your URL on the selected events; optional HMAC
+  secret adds an `X-Fe2o3-Signature` header (hex SHA-256 of the body).
+- **Slack** — incoming-webhook message on change/failure.
+
+Events: `backup_changed` (new commit), `backup_failed`, `backup_success` (every
+successful run, changed or not). Use *Test* to fire a sample delivery.
+
+## MFA
+
+On **Profile**:
+
+- **TOTP** — *Set up TOTP*, scan the QR with any authenticator app, confirm a
+  code. Sign-ins then require a code after the password.
+- **Passkeys** — *Add passkey* registers Touch ID / security key / phone. The
+  login page's *Sign in with passkey* button is usernameless and satisfies MFA
+  by itself. Requires the instance to be served over HTTPS with a correct
+  `FE2O3_BASE_URL`.
+
+Superadmins can reset a locked-out user's password from **Users**; disabling a
+user kills their sessions immediately.
+
+## API keys
+
+**API keys** → *Create*. The full token (`fe2o3_<prefix>_<secret>`) is shown
+**once**. Scopes:
+
+- `read` — GET only
+- `write` — read + mutations, org roles still apply
+- `admin` — full access including superadmin routes (if your account is one)
+
+Keys can expire, show last-used time, and can be revoked instantly.
+
+## Settings (superadmin)
+
+- **Base URL** — public URL, used for passkey origin binding
+- **Git author** — name/email on backup commits
+- **Concurrency** — max simultaneous device sessions
+
+## The git repositories
+
+Each org's repo lives at `<dataDir>/repos/<org-slug>` with one file per device
+under its group directory (`core/core-sw1`). They're normal git repos — clone
+them, add remotes, or point existing oxidized tooling at them.

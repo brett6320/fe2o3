@@ -1,0 +1,15 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+fe2o3.env
+secrets/*
+!secrets/*.example
+coverage/
+.claude/wrappers/

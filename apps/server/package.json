@@ -1,0 +1,48 @@
+{
+  "name": "@fe2o3/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "db:generate": "drizzle-kit generate",
+    "start": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.11",
+    "@fastify/cookie": "^11.0.2",
+    "@fastify/static": "^9.3.0",
+    "@fastify/swagger": "^9.6.1",
+    "@fe2o3/driver-sdk": "workspace:*",
+    "@fe2o3/shared": "workspace:*",
+    "@scalar/fastify-api-reference": "^1.36.9",
+    "@simplewebauthn/server": "^13.3.2",
+    "argon2": "^0.45.1",
+    "drizzle-orm": "^0.45.2",
+    "execa": "^9.6.1",
+    "fastify": "^5.6.2",
+    "fastify-plugin": "^6.0.0",
+    "fastify-type-provider-zod": "^6.1.0",
+    "nanoid": "^5.1.9",
+    "otplib": "^13.4.1",
+    "p-queue": "^9.0.1",
+    "pg": "^8.16.3",
+    "pino": "^10.1.0",
+    "qrcode": "^1.5.4",
+    "ssh2": "^1.17.0",
+    "tsx": "^4.20.7",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.7",
+    "@types/pg": "^8.15.6",
+    "@types/qrcode": "^1.5.6",
+    "@types/ssh2": "^1.15.5",
+    "drizzle-kit": "^0.31.10",
+    "pino-pretty": "^13.1.2",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.4"
+  }
+}

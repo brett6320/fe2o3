@@ -1,0 +1,50 @@
+name: Trivy
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '20 5 * * 1' # weekly, Monday 05:20 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  scan-repo:
+    name: Scan repository (vulns, secrets, misconfig)
+    runs-on: ubuntu-24.04
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret,misconfig
+          format: sarif
+          output: trivy-fs.sarif
+          severity: CRITICAL,HIGH,MEDIUM
+          ignore-unfixed: true
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs
+
+      # Fail the job on new CRITICAL/HIGH fixable vulns (table output for logs)
+      - name: Trivy gate
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          scan-type: fs
+          scanners: vuln,secret
+          format: table
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+          exit-code: '1'

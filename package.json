@@ -1,0 +1,23 @@
+{
+  "name": "fe2o3",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Modern network device configuration backup — web-managed, git-versioned",
+  "license": "MIT",
+  "packageManager": "pnpm@11.17.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @fe2o3/server --filter @fe2o3/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "pnpm -r test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "typescript": "^5.9.3"
+  }
+}
