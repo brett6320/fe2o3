@@ -20,7 +20,7 @@ WORKDIR /app
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/server/package.json apps/server/
 COPY packages packages/
-RUN pnpm install --frozen-lockfile --filter @fe2o3/server --prod
+RUN pnpm install --frozen-lockfile --filter "@fe2o3/server..." --prod
 COPY apps/server/src apps/server/src
 COPY apps/server/drizzle.config.ts apps/server/
 COPY --from=build /app/apps/web/dist apps/web/dist
