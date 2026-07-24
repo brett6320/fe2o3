@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button, Card, ErrorText, Input, Label, Textarea } from '@/components/ui';
-import { api, del, post } from '@/lib/api';
+import { api, del, patch, post } from '@/lib/api';
 import { useOrg } from '@/lib/org-context';
 
 interface Credential {
@@ -56,6 +56,14 @@ export function CredentialsPage() {
   const remove = useMutation({
     mutationFn: (id: string) => del(`/orgs/${orgId}/credentials/${id}`),
     onSuccess: invalidate,
+  });
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const rename = useMutation({
+    mutationFn: () => patch(`/orgs/${orgId}/credentials/${renaming?.id}`, { name: renaming?.name }),
+    onSuccess: () => {
+      invalidate();
+      setRenaming(null);
+    },
   });
 
   return (
@@ -166,7 +174,39 @@ export function CredentialsPage() {
           <tbody className="divide-y divide-border bg-card">
             {creds.data?.map((c) => (
               <tr key={c.id}>
-                <td className="px-4 py-2 font-medium">{c.name}</td>
+                <td className="px-4 py-2 font-medium">
+                  {renaming?.id === c.id ? (
+                    <form
+                      className="flex gap-1"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        rename.mutate();
+                      }}
+                    >
+                      <Input
+                        autoFocus
+                        className="h-7 w-40"
+                        value={renaming.name}
+                        onChange={(e) =>
+                          setRenaming((r) => (r ? { ...r, name: e.target.value } : r))
+                        }
+                      />
+                      <Button type="submit" className="h-7 px-2" disabled={rename.isPending}>
+                        Save
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="h-7 px-2"
+                        onClick={() => setRenaming(null)}
+                      >
+                        Cancel
+                      </Button>
+                    </form>
+                  ) : (
+                    c.name
+                  )}
+                </td>
                 <td className="px-4 py-2">{c.username || '—'}</td>
                 <td className="px-4 py-2 text-muted-foreground">
                   {[
@@ -179,9 +219,17 @@ export function CredentialsPage() {
                 </td>
                 <td className="px-4 py-2 text-right">
                   {role === 'admin' && (
-                    <Button variant="destructive" onClick={() => remove.mutate(c.id)}>
-                      Delete
-                    </Button>
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setRenaming({ id: c.id, name: c.name })}
+                      >
+                        Rename
+                      </Button>
+                      <Button variant="destructive" onClick={() => remove.mutate(c.id)}>
+                        Delete
+                      </Button>
+                    </div>
                   )}
                 </td>
               </tr>

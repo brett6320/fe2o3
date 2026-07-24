@@ -18,6 +18,57 @@ interface Credential {
   name: string;
 }
 
+function MoveGroupSection({ group, onMoved }: { group: Group; onMoved: () => void }) {
+  const { orgId, orgs } = useOrg();
+  const qc = useQueryClient();
+  const [toOrgId, setToOrgId] = useState('');
+  const targets = orgs.filter((o) => o.id !== orgId);
+
+  const move = useMutation({
+    mutationFn: () =>
+      post<{ movedDevices: number }>(`/orgs/${orgId}/groups/${group.id}/move`, { toOrgId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['groups', orgId] });
+      qc.invalidateQueries({ queryKey: ['devices', orgId] });
+      onMoved();
+    },
+  });
+
+  if (targets.length === 0) return null;
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <h3 className="text-sm font-medium">Move to another organization</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Moves the group and all its devices (config files included) into the target org. Device and
+        group credentials are cleared and must be reassigned there.
+      </p>
+      <div className="mt-3 flex items-end gap-2">
+        <select
+          className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+          value={toOrgId}
+          onChange={(e) => setToOrgId(e.target.value)}
+        >
+          <option value="">Target org…</option>
+          {targets.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+        <Button
+          variant="outline"
+          disabled={!toOrgId || move.isPending}
+          onClick={() => move.mutate()}
+        >
+          Move group
+        </Button>
+      </div>
+      <ErrorText>{move.error?.message}</ErrorText>
+    </div>
+  );
+}
+
 export function GroupsPage() {
   const { orgId, role } = useOrg();
   const qc = useQueryClient();
@@ -233,6 +284,7 @@ export function GroupsPage() {
               </Button>
             </div>
           </form>
+          <MoveGroupSection group={editing} onMoved={() => setEditing(null)} />
         </Card>
       )}
 

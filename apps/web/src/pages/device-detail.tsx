@@ -478,6 +478,79 @@ function DeviceEditForm({ device }: { device: Device }) {
           Save changes
         </Button>
       </form>
+      <MoveDeviceSection device={device} />
     </Card>
+  );
+}
+
+function MoveDeviceSection({ device }: { device: Device }) {
+  const { orgId, orgs } = useOrg();
+  const navigate = useNavigate();
+  const [toOrgId, setToOrgId] = useState('');
+  const [toGroupId, setToGroupId] = useState('');
+  const targets = orgs.filter((o) => o.id !== orgId);
+
+  const groups = useQuery({
+    queryKey: ['groups', toOrgId],
+    queryFn: () => api<{ id: string; name: string }[]>(`/orgs/${toOrgId}/groups`),
+    enabled: !!toOrgId,
+  });
+
+  const move = useMutation({
+    mutationFn: () => post(`/orgs/${orgId}/devices/${device.id}/move`, { toOrgId, toGroupId }),
+    onSuccess: () => {
+      // the device now lives in another org; leave this (now-cross-org) page
+      navigate({ to: '/devices' });
+    },
+  });
+
+  if (targets.length === 0) return null;
+
+  return (
+    <div className="mt-6 border-t border-border pt-4">
+      <h3 className="text-sm font-medium">Move to another organization</h3>
+      <p className="mt-1 text-xs text-muted-foreground">
+        The config moves into the target org's git repository; the device's credential is cleared
+        (credentials are per-org) and must be reassigned there.
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <select
+          className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+          value={toOrgId}
+          onChange={(e) => {
+            setToOrgId(e.target.value);
+            setToGroupId('');
+          }}
+        >
+          <option value="">Target org…</option>
+          {targets.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
+        <select
+          className="flex h-9 rounded-md border border-input bg-transparent px-3 text-sm"
+          value={toGroupId}
+          onChange={(e) => setToGroupId(e.target.value)}
+          disabled={!toOrgId}
+        >
+          <option value="">Target group…</option>
+          {groups.data?.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
+        </select>
+        <Button
+          variant="outline"
+          disabled={!toOrgId || !toGroupId || move.isPending}
+          onClick={() => move.mutate()}
+        >
+          Move device
+        </Button>
+      </div>
+      <ErrorText>{move.error?.message}</ErrorText>
+    </div>
   );
 }
