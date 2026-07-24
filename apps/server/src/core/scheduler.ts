@@ -75,6 +75,9 @@ export class Scheduler {
       void this.queue.add(async () => {
         try {
           await this.runOne(d.id, d.intervalSec ?? d.defaultIntervalSec, d.consecutiveFailures);
+        } catch (err) {
+          // A single device must never crash the scheduler / process.
+          this.ctx.log?.warn?.({ err, deviceId: d.id }, 'scheduled backup threw');
         } finally {
           this.inFlight.delete(d.id);
         }
