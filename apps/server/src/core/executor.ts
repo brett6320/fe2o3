@@ -47,6 +47,9 @@ async function expectPaged(
 function cleanOutput(raw: string): string {
   return (
     raw
+      // NUL bytes: some gear (Digi Sarian) emits them; Postgres text rejects 0x00
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping NUL
+      .replace(/\x00/g, '')
       // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
       .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
       // pagination prompt plus the backspace/space runs devices use to erase it

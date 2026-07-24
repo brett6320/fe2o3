@@ -5,7 +5,7 @@ import { startFakeDevice } from './fixtures/fake-ssh-server.js';
 import { startFakeTelnetDevice } from './fixtures/fake-telnet-server.js';
 
 // Excerpt of a real `config c show` from a Digi TransPort unit.
-const RUNNING = `eth 0 IPaddr "172.23.133.17"
+const RUNNING = `\u0000eth 0 IPaddr "172.23.133.17"
 eth 0 mask "255.255.255.248"
 route 0 descr "CAN-2501"
 eroute 0 authmeth "PRESHARED"
@@ -57,6 +57,9 @@ describe('digi transport driver', () => {
       expect(result.configText).not.toContain('KydiYlQbEUZjTkg5YQtGM1g2BQF1VSdeDGxyV1M+bUg=');
       expect(result.configText).not.toContain('CzRvUkxLTwgADA==');
       expect(result.configText).toContain('<secret hidden>');
+      // NUL bytes (Sarian emits them) are stripped — Postgres text rejects 0x00
+      expect(result.configText).not.toContain('\u0000');
+      expect(result.transcript).not.toContain('\u0000');
       // the OK terminator is dropped
       expect(result.configText).not.toMatch(/^OK$/m);
       // non-secret config is preserved
