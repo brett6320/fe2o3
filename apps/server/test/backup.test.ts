@@ -200,6 +200,43 @@ describe('backup engine e2e', () => {
     });
   });
 
+  it('disables a device (no crash) when it has no usable credential', async () => {
+    // a group with no default credential + a device with no credential
+    const grp = await app.inject({
+      method: 'POST',
+      url: `/api/v1/orgs/${orgId}/groups`,
+      cookies: cookie,
+      payload: { name: 'NoCred', pathSlug: 'nocred' },
+    });
+    const dev = await app.inject({
+      method: 'POST',
+      url: `/api/v1/orgs/${orgId}/devices`,
+      cookies: cookie,
+      payload: { name: 'orphan', host: '127.0.0.1', modelId: 'ios', groupId: grp.json().id },
+    });
+    const devId = dev.json().id;
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/orgs/${orgId}/devices/${devId}/backup`,
+      cookies: cookie,
+    });
+    // returns a normal failed outcome — does NOT throw / crash
+    expect(res.statusCode).toBe(200);
+    expect(res.json().status).toBe('failed');
+    expect(res.json().error).toMatch(/no credential/i);
+
+    // device is now disabled and won't be retried
+    const after = await app.inject({
+      method: 'GET',
+      url: `/api/v1/orgs/${orgId}/devices/${devId}`,
+      cookies: cookie,
+    });
+    expect(after.json().enabled).toBe(false);
+    expect(after.json().lastStatus).toBe('failed');
+    expect(after.json().nextRunAt).toBeNull();
+  });
+
   it('records a failed job when the device is unreachable', async () => {
     const group = await app.inject({
       method: 'GET',

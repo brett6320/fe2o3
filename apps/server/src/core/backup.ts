@@ -46,13 +46,36 @@ export async function backupDevice(
   if (!driver) throw new Error(`unknown driver model: ${device.modelId}`);
 
   const credentialId = device.credentialId ?? group.defaultCredentialId;
-  if (!credentialId) throw new Error('no credential assigned to device or group');
-  const [cred] = await db
-    .select()
-    .from(credentials)
-    .where(eq(credentials.id, credentialId))
-    .limit(1);
-  if (!cred) throw new Error('credential not found');
+  const [cred] = credentialId
+    ? await db.select().from(credentials).where(eq(credentials.id, credentialId)).limit(1)
+    : [];
+
+  // No usable credential is a configuration problem that won't self-heal (e.g.
+  // after a cross-org move clears the device's org-scoped credential). Disable
+  // the device so the scheduler stops retrying, record a failed job explaining
+  // why, and return a failed outcome instead of throwing (which would surface
+  // as an unhandled rejection in the scheduler and crash the process).
+  if (!cred) {
+    const message =
+      'No credential assigned to this device or its group — device disabled until a credential is set';
+    const [failed] = await db
+      .insert(jobs)
+      .values({
+        orgId: device.orgId,
+        deviceId: device.id,
+        trigger,
+        status: 'failed',
+        startedAt: new Date(),
+        finishedAt: new Date(),
+        error: message,
+      })
+      .returning({ id: jobs.id });
+    await db
+      .update(devices)
+      .set({ enabled: false, lastStatus: 'failed', lastError: message, nextRunAt: null })
+      .where(eq(devices.id, device.id));
+    return { jobId: failed?.id ?? '', status: 'failed', commitSha: null, error: message };
+  }
 
   const [job] = await db
     .insert(jobs)
