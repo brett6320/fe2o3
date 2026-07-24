@@ -1,5 +1,6 @@
 import type { DriverSpec } from '@fe2o3/driver-sdk';
 import { connectSsh } from './input/ssh.js';
+import { connectTelnet } from './input/telnet.js';
 import type { ConnectOptions, Transport } from './input/transport.js';
 
 export interface ExecutorResult {
@@ -9,6 +10,7 @@ export interface ExecutorResult {
 
 export interface DeviceSession {
   driver: DriverSpec;
+  protocol?: 'ssh' | 'telnet';
   connect: ConnectOptions;
   enablePassword?: string | undefined;
 }
@@ -41,8 +43,21 @@ function extractBody(raw: string, cmd: string): string {
  */
 export async function runBackup(session: DeviceSession): Promise<ExecutorResult> {
   const { driver } = session;
-  const transport: Transport = await connectSsh(session.connect);
+  const telnet = session.protocol === 'telnet';
+  const transport: Transport = telnet
+    ? await connectTelnet(session.connect)
+    : await connectSsh(session.connect);
   try {
+    if (telnet) {
+      const login = driver.telnetLogin ?? {
+        userPrompt: /(?:login|[Uu]sername):\s?$/m,
+        passPrompt: /[Pp]assword:\s?$/m,
+      };
+      await transport.expect(login.userPrompt);
+      await transport.send(session.connect.username);
+      await transport.expect(login.passPrompt);
+      await transport.send(session.connect.password ?? '');
+    }
     await transport.expect(driver.prompt);
 
     if (driver.enable && session.enablePassword) {

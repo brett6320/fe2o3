@@ -64,12 +64,19 @@ export async function backupDevice(
   const dec = (v: string | null) => (v ? decryptSecret(v, config.secretKey) : undefined);
 
   try {
+    const loginSuffix =
+      typeof device.vars.loginSuffix === 'string'
+        ? device.vars.loginSuffix
+        : device.modelId === 'routeros'
+          ? '+ct200w'
+          : '';
     const result = await runBackup({
       driver,
+      protocol: device.protocol,
       connect: {
         host: device.host,
-        port: device.port ?? 22,
-        username: cred.username,
+        port: device.port ?? (device.protocol === 'telnet' ? 23 : 22),
+        username: cred.username + loginSuffix,
         password: dec(cred.passwordEnc),
         privateKey: dec(cred.sshPrivateKeyEnc),
         passphrase: dec(cred.sshKeyPassphraseEnc),
