@@ -115,7 +115,7 @@ export function AppShell() {
           <div className="flex size-7 items-center justify-center rounded-md bg-primary font-mono text-sm font-bold text-primary-foreground">
             Fe
           </div>
-          <span className="font-semibold tracking-tight">fe2o3</span>
+          <span className="font-semibold tracking-tight">Fe2O3</span>
         </div>
         <OrgSwitcher />
         <nav className="flex-1 space-y-1 p-2">

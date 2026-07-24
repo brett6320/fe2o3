@@ -59,7 +59,7 @@ export function LoginPage() {
             Fe
           </div>
           <div>
-            <h1 className="font-semibold">fe2o3</h1>
+            <h1 className="font-semibold">Fe2O3</h1>
             <p className="text-xs text-muted-foreground">Config backup for network devices</p>
           </div>
         </div>
