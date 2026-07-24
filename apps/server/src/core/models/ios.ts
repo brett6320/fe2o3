@@ -11,7 +11,7 @@ export default defineDriver({
   enable: { cmd: 'enable', passPrompt: /Password:\s?$/i },
   commands: [
     { cmd: 'show version', name: 'version' },
-    { cmd: 'show inventory', name: 'inventory' },
+    { cmd: 'show inventory', name: 'inventory', optional: true },
     { cmd: 'show running-config', name: 'running-config' },
   ],
   scrubbers: [

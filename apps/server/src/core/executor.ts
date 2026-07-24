@@ -113,10 +113,12 @@ export async function runBackup(session: DeviceSession): Promise<ExecutorResult>
     for (const spec of driver.commands) {
       await transport.send(spec.cmd);
       const raw = await expectPaged(transport, driver.prompt);
-      for (const pattern of driver.errorPatterns ?? []) {
-        if (pattern.test(raw)) {
-          throw new Error(`command "${spec.cmd}" failed: ${raw.match(pattern)?.[0]}`);
-        }
+      const errorMatch = (driver.errorPatterns ?? []).map((p) => raw.match(p)?.[0]).find(Boolean);
+      if (errorMatch) {
+        // Unsupported optional command (e.g. `show inventory` on older IOS):
+        // skip its section rather than failing the whole backup.
+        if (spec.optional) continue;
+        throw new Error(`command "${spec.cmd}" failed: ${errorMatch}`);
       }
       let body = extractBody(raw, spec.cmd);
       if (spec.transform) body = spec.transform(body);
