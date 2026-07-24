@@ -16,7 +16,13 @@ export class Scheduler {
   private inFlight = new Set<string>();
 
   constructor(
-    private ctx: { db: Db; config: AppConfig; registry: DriverRegistry; bus: EventBus },
+    private ctx: {
+      db: Db;
+      config: AppConfig;
+      registry: DriverRegistry;
+      bus: EventBus;
+      log?: { warn?: (o: unknown, m: string) => void };
+    },
     concurrency = 20,
   ) {
     this.queue = new PQueue({ concurrency });

@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
 import { api, del, post, put } from '@/lib/api';
 import { useInvalidateSession, useSession } from '@/lib/session';
@@ -55,7 +55,7 @@ function MembersPanel({ org, users }: { org: Org; users: User[] }) {
   const addable = users.filter((u) => !memberIds.has(u.id));
 
   return (
-    <div className="border-t border-border bg-muted/20 px-4 py-3">
+    <div>
       <table className="w-full text-sm">
         <tbody className="divide-y divide-border/50">
           {members.data?.map((m) => (
@@ -128,6 +128,130 @@ function MembersPanel({ org, users }: { org: Org; users: User[] }) {
         </Button>
       </form>
       <ErrorText>{upsert.error?.message ?? remove.error?.message}</ErrorText>
+    </div>
+  );
+}
+
+interface MirrorConfig {
+  mirrorUrl: string | null;
+  mirrorBranch: string;
+  hasToken: boolean;
+  hasSshKey: boolean;
+}
+
+function MirrorPanel({ org }: { org: Org }) {
+  const qc = useQueryClient();
+  const cfg = useQuery({
+    queryKey: ['mirror', org.id],
+    queryFn: () => api<MirrorConfig>(`/orgs/${org.id}/mirror`),
+  });
+  const [form, setForm] = useState({ url: '', branch: 'main', token: '', sshKey: '' });
+  const [testResult, setTestResult] = useState<string | null>(null);
+  const loaded = cfg.data;
+  // seed the form from the saved config once it loads
+  useEffect(() => {
+    if (loaded) {
+      setForm({ url: loaded.mirrorUrl ?? '', branch: loaded.mirrorBranch, token: '', sshKey: '' });
+    }
+  }, [loaded]);
+
+  const save = useMutation({
+    mutationFn: () =>
+      put<MirrorConfig>(`/orgs/${org.id}/mirror`, {
+        mirrorUrl: form.url || null,
+        mirrorBranch: form.branch || 'main',
+        ...(form.token ? { token: form.token } : {}),
+        ...(form.sshKey ? { sshKey: form.sshKey } : {}),
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['mirror', org.id] });
+      setForm((f) => ({ ...f, token: '', sshKey: '' }));
+    },
+  });
+  const test = useMutation({
+    mutationFn: () => post<{ ok: boolean; error?: string }>(`/orgs/${org.id}/mirror/test`),
+    onSuccess: (r) => setTestResult(r.ok ? 'Push succeeded.' : `Failed: ${r.error}`),
+  });
+
+  const isSsh = form.url.startsWith('git@') || form.url.startsWith('ssh://');
+
+  return (
+    <div className="mt-2 space-y-3 rounded-md border border-border p-3">
+      <div className="text-sm font-medium">External git mirror</div>
+      <p className="text-xs text-muted-foreground">
+        Force-pushed to after each changed backup, keeping an external copy in sync.
+      </p>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <div className="grid grid-cols-[1fr_140px] gap-2">
+          <div className="space-y-1">
+            <Label htmlFor={`m-url-${org.id}`}>Remote URL</Label>
+            <Input
+              id={`m-url-${org.id}`}
+              placeholder="git@github.com:org/configs.git or https://github.com/org/configs.git"
+              value={form.url}
+              onChange={(e) => setForm((f) => ({ ...f, url: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={`m-branch-${org.id}`}>Branch</Label>
+            <Input
+              id={`m-branch-${org.id}`}
+              value={form.branch}
+              onChange={(e) => setForm((f) => ({ ...f, branch: e.target.value }))}
+            />
+          </div>
+        </div>
+        {isSsh ? (
+          <div className="space-y-1">
+            <Label htmlFor={`m-key-${org.id}`}>
+              SSH deploy key {loaded?.hasSshKey && '(set — leave blank to keep)'}
+            </Label>
+            <textarea
+              id={`m-key-${org.id}`}
+              rows={4}
+              spellCheck={false}
+              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs"
+              placeholder={loaded?.hasSshKey ? '••••••••' : '-----BEGIN OPENSSH PRIVATE KEY-----'}
+              value={form.sshKey}
+              onChange={(e) => setForm((f) => ({ ...f, sshKey: e.target.value }))}
+            />
+          </div>
+        ) : (
+          <div className="space-y-1">
+            <Label htmlFor={`m-token-${org.id}`}>
+              Access token {loaded?.hasToken && '(set — leave blank to keep)'}
+            </Label>
+            <Input
+              id={`m-token-${org.id}`}
+              type="password"
+              placeholder={loaded?.hasToken ? '••••••••' : 'ghp_…'}
+              value={form.token}
+              onChange={(e) => setForm((f) => ({ ...f, token: e.target.value }))}
+            />
+          </div>
+        )}
+        <div className="flex items-center gap-2">
+          <Button type="submit" disabled={save.isPending}>
+            Save mirror
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => test.mutate()}
+            disabled={test.isPending || !loaded?.mirrorUrl}
+          >
+            Test push
+          </Button>
+          {testResult && <span className="text-xs text-muted-foreground">{testResult}</span>}
+        </div>
+        <ErrorText>{save.error?.message}</ErrorText>
+      </form>
     </div>
   );
 }
@@ -267,7 +391,12 @@ export function OrgsPage() {
                 Delete
               </Button>
             </div>
-            {expanded === org.id && <MembersPanel org={org} users={users.data ?? []} />}
+            {expanded === org.id && (
+              <div className="border-t border-border bg-muted/20 px-4 py-3">
+                <MembersPanel org={org} users={users.data ?? []} />
+                <MirrorPanel org={org} />
+              </div>
+            )}
           </Card>
         ))}
         {orgs.data?.length === 0 && (

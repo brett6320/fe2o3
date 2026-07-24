@@ -7,7 +7,9 @@ import {
 import { and, eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
+import { decryptSecret, encryptSecret } from '../auth/crypto.js';
 import { requireOrgRole, requireSuperadmin } from '../auth/plugin.js';
+import { getOrgRepo } from '../core/git/repo.js';
 import { orgMemberships, orgs, users } from '../db/schema.js';
 import { respond } from './replies.js';
 
@@ -134,6 +136,116 @@ export const orgRoutes: FastifyPluginAsyncZod = async (app) => {
           ),
         );
       return { ok: true };
+    },
+  );
+  // ---- external git mirror (one per org) ----
+  const mirrorSchema = z.object({
+    mirrorUrl: z.string().nullable(),
+    mirrorBranch: z.string(),
+    hasToken: z.boolean(),
+    hasSshKey: z.boolean(),
+  });
+
+  app.get(
+    '/orgs/:orgId/mirror',
+    {
+      preHandler: requireOrgRole('admin'),
+      schema: {
+        tags: ['orgs'],
+        params: z.object({ orgId: z.string() }),
+        response: respond(mirrorSchema, 404),
+      },
+    },
+    async (req, reply) => {
+      const [org] = await app.db.select().from(orgs).where(eq(orgs.id, req.params.orgId)).limit(1);
+      if (!org) {
+        return reply
+          .code(404)
+          .send({ statusCode: 404, error: 'Not Found', message: 'Org not found' } as never);
+      }
+      return {
+        mirrorUrl: org.mirrorUrl,
+        mirrorBranch: org.mirrorBranch,
+        hasToken: org.mirrorTokenEnc !== null,
+        hasSshKey: org.mirrorSshKeyEnc !== null,
+      };
+    },
+  );
+
+  app.put(
+    '/orgs/:orgId/mirror',
+    {
+      preHandler: requireOrgRole('admin'),
+      schema: {
+        tags: ['orgs'],
+        params: z.object({ orgId: z.string() }),
+        body: z.object({
+          mirrorUrl: z.string().max(1024).nullable(),
+          mirrorBranch: z.string().min(1).max(200).default('main'),
+          // write-only secrets: omit to keep, empty string to clear
+          token: z.string().max(4096).optional(),
+          sshKey: z.string().max(32768).optional(),
+        }),
+        response: { 200: mirrorSchema },
+      },
+    },
+    async (req) => {
+      const enc = (v: string | undefined) =>
+        v === undefined ? undefined : v === '' ? null : encryptSecret(v, app.config.keyring);
+      const patch: Record<string, unknown> = {
+        mirrorUrl: req.body.mirrorUrl,
+        mirrorBranch: req.body.mirrorBranch,
+      };
+      const t = enc(req.body.token);
+      if (t !== undefined) patch.mirrorTokenEnc = t;
+      const k = enc(req.body.sshKey);
+      if (k !== undefined) patch.mirrorSshKeyEnc = k;
+      const [org] = await app.db
+        .update(orgs)
+        .set(patch)
+        .where(eq(orgs.id, req.params.orgId))
+        .returning();
+      return {
+        mirrorUrl: org?.mirrorUrl ?? null,
+        mirrorBranch: org?.mirrorBranch ?? 'main',
+        hasToken: (org?.mirrorTokenEnc ?? null) !== null,
+        hasSshKey: (org?.mirrorSshKeyEnc ?? null) !== null,
+      };
+    },
+  );
+
+  app.post(
+    '/orgs/:orgId/mirror/test',
+    {
+      preHandler: requireOrgRole('admin'),
+      schema: {
+        tags: ['orgs'],
+        params: z.object({ orgId: z.string() }),
+        response: respond(z.object({ ok: z.boolean(), error: z.string().optional() }), 400),
+      },
+    },
+    async (req, reply) => {
+      const [org] = await app.db.select().from(orgs).where(eq(orgs.id, req.params.orgId)).limit(1);
+      if (!org?.mirrorUrl) {
+        return reply.code(400).send({
+          statusCode: 400,
+          error: 'Bad Request',
+          message: 'No mirror URL configured',
+        } as never);
+      }
+      const dec = (v: string | null) => (v ? decryptSecret(v, app.config.keyring) : undefined);
+      const repo = await getOrgRepo(app.config.reposDir, org.slug);
+      try {
+        await repo.mirror({
+          url: org.mirrorUrl,
+          branch: org.mirrorBranch,
+          token: dec(org.mirrorTokenEnc),
+          sshKey: dec(org.mirrorSshKeyEnc),
+        });
+        return { ok: true };
+      } catch (err) {
+        return { ok: false, error: err instanceof Error ? err.message.slice(0, 500) : String(err) };
+      }
     },
   );
 };

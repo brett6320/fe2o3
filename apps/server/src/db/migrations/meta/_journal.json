@@ -36,6 +36,13 @@
       "when": 1784901583217,
       "tag": "0004_aromatic_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1784903112118,
+      "tag": "0005_wandering_agent_brand",
+      "breakpoints": true
     }
   ]
 }

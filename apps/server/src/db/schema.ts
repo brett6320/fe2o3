@@ -40,6 +40,13 @@ export const orgs = pgTable('orgs', {
   id: id(),
   name: text('name').notNull(),
   slug: text('slug').notNull().unique(),
+  /** Optional external git remote pushed after each changed backup. */
+  mirrorUrl: text('mirror_url'),
+  mirrorBranch: text('mirror_branch').notNull().default('main'),
+  /** HTTPS personal-access-token (encrypted); used for https:// mirror URLs. */
+  mirrorTokenEnc: text('mirror_token_enc'),
+  /** SSH private key (encrypted); used for git@/ssh:// mirror URLs. */
+  mirrorSshKeyEnc: text('mirror_ssh_key_enc'),
   ...timestamps,
 });
 
