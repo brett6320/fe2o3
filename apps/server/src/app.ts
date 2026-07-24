@@ -15,6 +15,7 @@ import type { Db } from './db/index.js';
 import { EventBus } from './realtime/bus.js';
 import { adminKeyRoutes } from './routes/admin-keys.js';
 import { apiKeyRoutes } from './routes/api-keys.js';
+import { auditRoutes } from './routes/audit.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import { eventRoutes } from './routes/events.js';
@@ -92,6 +93,7 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   await app.register(importRoutes, { prefix: '/api/v1' });
   await app.register(settingRoutes, { prefix: '/api/v1' });
   await app.register(adminKeyRoutes, { prefix: '/api/v1' });
+  await app.register(auditRoutes, { prefix: '/api/v1' });
 
   // Serve the built SPA when present (production single-process deployment)
   const { existsSync } = await import('node:fs');

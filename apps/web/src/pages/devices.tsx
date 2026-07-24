@@ -14,6 +14,8 @@ export interface Device {
   protocol: 'ssh' | 'telnet';
   modelId: string;
   groupId: string;
+  credentialId: string | null;
+  intervalSec: number | null;
   enabled: boolean;
   lastStatus: 'never' | 'running' | 'success' | 'failed';
   lastBackupAt: string | null;
@@ -21,6 +23,10 @@ export interface Device {
 }
 
 interface Group {
+  id: string;
+  name: string;
+}
+interface Credential {
   id: string;
   name: string;
 }
@@ -54,6 +60,7 @@ export function DevicesPage() {
     port: '',
     modelId: 'ios',
     groupId: '',
+    credentialId: '',
   });
 
   const devices = useQuery({
@@ -71,6 +78,11 @@ export function DevicesPage() {
     queryKey: ['models'],
     queryFn: () => api<DriverInfo[]>('/models'),
   });
+  const creds = useQuery({
+    queryKey: ['credentials', orgId],
+    queryFn: () => api<Credential[]>(`/orgs/${orgId}/credentials`),
+    enabled: !!orgId,
+  });
 
   const create = useMutation({
     mutationFn: () =>
@@ -80,11 +92,12 @@ export function DevicesPage() {
         port: form.port ? Number(form.port) : null,
         modelId: form.modelId,
         groupId: form.groupId || groups.data?.[0]?.id,
+        credentialId: form.credentialId || null,
       }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['devices', orgId] });
       setShowCreate(false);
-      setForm({ name: '', host: '', port: '', modelId: 'ios', groupId: '' });
+      setForm({ name: '', host: '', port: '', modelId: 'ios', groupId: '', credentialId: '' });
     },
   });
 
@@ -173,7 +186,23 @@ export function DevicesPage() {
                   ))}
                 </select>
               </div>
-              <div className="col-span-2 space-y-2">
+              <div className="space-y-2">
+                <Label htmlFor="d-cred">Credential</Label>
+                <select
+                  id="d-cred"
+                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm"
+                  value={form.credentialId}
+                  onChange={(e) => setForm((f) => ({ ...f, credentialId: e.target.value }))}
+                >
+                  <option value="">Group default</option>
+                  {creds.data?.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="space-y-2">
                 <Label htmlFor="d-group">Group</Label>
                 <select
                   id="d-group"

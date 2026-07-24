@@ -138,6 +138,25 @@ describe('setup + auth + rbac', () => {
     expect(escalate.statusCode).toBe(403);
   });
 
+  it('audit endpoint is superadmin-only and records mutations', async () => {
+    const entries = await app.inject({ method: 'GET', url: '/api/v1/audit', cookies: adminCookie });
+    expect(entries.statusCode).toBe(200);
+    expect(entries.json().length).toBeGreaterThan(0);
+    expect(entries.json()[0].userEmail).toBeTruthy();
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'viewer@example.com', password: 'viewer-pass-123' },
+    });
+    const denied = await app.inject({
+      method: 'GET',
+      url: '/api/v1/audit',
+      cookies: cookieOf(login),
+    });
+    expect(denied.statusCode).toBe(403);
+  });
+
   it('disabling a user kills their sessions', async () => {
     const login = await app.inject({
       method: 'POST',

@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { AppShell } from './components/app-shell';
 import { ApiKeysPage } from './pages/api-keys';
+import { AuditPage } from './pages/audit';
 import { CredentialsPage } from './pages/credentials';
 import { DashboardPage } from './pages/dashboard';
 import { DeviceDetailPage } from './pages/device-detail';
@@ -65,6 +66,8 @@ const deviceDetailRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/devices/$deviceId',
   component: DeviceDetailPage,
+  validateSearch: (search: Record<string, unknown>): { sha?: string } =>
+    typeof search.sha === 'string' ? { sha: search.sha } : {},
 });
 
 const groupsRoute = createRoute({
@@ -89,6 +92,12 @@ const modelsRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/models',
   component: ModelsPage,
+});
+
+const auditRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/audit',
+  component: AuditPage,
 });
 
 const apiKeysRoute = createRoute({
@@ -123,6 +132,7 @@ const routeTree = rootRoute.addChildren([
     jobsRoute,
     modelsRoute,
     apiKeysRoute,
+    auditRoute,
     hooksRoute,
     settingsRoute,
   ]),
