@@ -109,6 +109,9 @@ export async function connectSsh(opts: ConnectOptions): Promise<Transport> {
     async send(line: string) {
       stream.write(`${line}\n`);
     },
+    async sendRaw(data: string) {
+      stream.write(data);
+    },
     transcript() {
       return full;
     },

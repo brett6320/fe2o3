@@ -15,12 +15,39 @@ export interface DeviceSession {
   enablePassword?: string | undefined;
 }
 
+const MORE_PROMPT = /(?:--\s?More\s?--|<--- More --->)\s*$/;
+
+/**
+ * Wait for `pattern`, transparently continuing through `--More--` pagination
+ * (long login banners page before `terminal length 0` can be sent).
+ */
+async function expectPaged(
+  transport: Transport,
+  pattern: RegExp,
+  timeoutMs?: number,
+): Promise<string> {
+  let out = '';
+  for (let i = 0; i < 500; i++) {
+    const combined = new RegExp(`(?:${pattern.source})|(?:${MORE_PROMPT.source})`, 'm');
+    const chunk = await transport.expect(combined, timeoutMs);
+    out += chunk;
+    if (pattern.test(chunk)) return out;
+    // matched the pagination prompt — space advances one page
+    await transport.sendRaw(' ');
+  }
+  throw new Error('pagination did not terminate after 500 pages');
+}
+
 /** Strip ANSI escapes and normalize line endings. */
 function cleanOutput(raw: string): string {
   return (
     raw
       // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping ANSI escape sequences
       .replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '')
+      // pagination prompt plus the backspace/space runs devices use to erase it
+      .replace(/(?:--\s?More\s?--|<--- More --->)/g, '')
+      // biome-ignore lint/suspicious/noControlCharactersInRegex: backspace erasure cleanup
+      .replace(/ *\x08+ *\x08*/g, '')
       .replace(/\r\n/g, '\n')
       .replace(/\r/g, '\n')
   );
@@ -58,28 +85,29 @@ export async function runBackup(session: DeviceSession): Promise<ExecutorResult>
       await transport.expect(login.passPrompt);
       await transport.send(session.connect.password ?? '');
     }
-    await transport.expect(driver.prompt);
+    await expectPaged(transport, driver.prompt);
 
     if (driver.enable && session.enablePassword) {
       await transport.send(driver.enable.cmd);
-      const res = await transport.expect(
+      const res = await expectPaged(
+        transport,
         new RegExp(`(?:${driver.enable.passPrompt.source})|(?:${driver.prompt.source})`, 'm'),
       );
       if (driver.enable.passPrompt.test(res)) {
         await transport.send(session.enablePassword);
-        await transport.expect(driver.prompt);
+        await expectPaged(transport, driver.prompt);
       }
     }
 
     for (const step of driver.init ?? []) {
       await transport.send(step.cmd);
-      await transport.expect(step.expect ?? driver.prompt);
+      await expectPaged(transport, step.expect ?? driver.prompt);
     }
 
     const sections: string[] = [];
     for (const spec of driver.commands) {
       await transport.send(spec.cmd);
-      const raw = await transport.expect(driver.prompt);
+      const raw = await expectPaged(transport, driver.prompt);
       for (const pattern of driver.errorPatterns ?? []) {
         if (pattern.test(raw)) {
           throw new Error(`command "${spec.cmd}" failed: ${raw.match(pattern)?.[0]}`);

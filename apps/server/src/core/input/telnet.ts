@@ -97,6 +97,9 @@ export async function connectTelnet(opts: ConnectOptions): Promise<Transport> {
     async send(line: string) {
       socket.write(`${line}\r\n`);
     },
+    async sendRaw(data: string) {
+      socket.write(data);
+    },
     transcript() {
       return full;
     },
