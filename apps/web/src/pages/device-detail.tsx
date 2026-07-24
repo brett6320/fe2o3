@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from '@tanstack/react-router';
-import { useState } from 'react';
-import { Button, Card, ErrorText } from '@/components/ui';
-import { api, post } from '@/lib/api';
+import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { useEffect, useState } from 'react';
+import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
+import { api, patch, post } from '@/lib/api';
 import { useOrg } from '@/lib/org';
 import { cn } from '@/lib/utils';
 import { type Device, statusDot } from './devices';
@@ -23,7 +23,7 @@ interface Job {
   createdAt: string;
 }
 
-type Tab = 'config' | 'versions' | 'jobs';
+type Tab = 'config' | 'versions' | 'jobs' | 'edit';
 
 function DiffView({ diff }: { diff: string }) {
   if (!diff.trim()) return <p className="p-4 text-sm text-muted-foreground">No differences.</p>;
@@ -52,8 +52,19 @@ export function DeviceDetailPage() {
   const { deviceId } = useParams({ strict: false }) as { deviceId: string };
   const { orgId, role } = useOrg();
   const qc = useQueryClient();
+  const search = useSearch({ strict: false }) as { sha?: string };
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>('config');
-  const [selectedSha, setSelectedSha] = useState<string | null>(null);
+  const [selectedSha, setSelectedShaState] = useState<string | null>(search.sha ?? null);
+  // keep the sha in the URL so specific versions are linkable
+  const setSelectedSha = (sha: string | null) => {
+    setSelectedShaState(sha);
+    navigate({
+      to: '.',
+      search: sha ? { sha } : {},
+      replace: true,
+    });
+  };
   const [diffFrom, setDiffFrom] = useState<string | null>(null);
   const [openJob, setOpenJob] = useState<string | null>(null);
 
@@ -128,7 +139,12 @@ export function DeviceDetailPage() {
       {backup.data?.error && <ErrorText>{backup.data.error}</ErrorText>}
 
       <div className="mt-6 flex gap-1 border-b border-border">
-        {(['config', 'versions', 'jobs'] as const).map((t) => (
+        {(
+          [
+            ...(['config', 'versions', 'jobs'] as const),
+            ...(role === 'admin' ? (['edit'] as const) : []),
+          ] as Tab[]
+        ).map((t) => (
           <button
             key={t}
             type="button"
@@ -216,6 +232,8 @@ export function DeviceDetailPage() {
         </div>
       )}
 
+      {tab === 'edit' && role === 'admin' && <DeviceEditForm device={d} />}
+
       {tab === 'jobs' && (
         <Card className="mt-4 p-0">
           <table className="w-full text-sm">
@@ -265,5 +283,201 @@ export function DeviceDetailPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+interface Option {
+  id: string;
+  name: string;
+}
+
+function DeviceEditForm({ device }: { device: Device }) {
+  const { orgId } = useOrg();
+  const qc = useQueryClient();
+  const [form, setForm] = useState({
+    name: device.name,
+    host: device.host,
+    port: device.port?.toString() ?? '',
+    protocol: device.protocol,
+    modelId: device.modelId,
+    groupId: device.groupId,
+    credentialId: device.credentialId ?? '',
+    intervalSec: device.intervalSec?.toString() ?? '',
+    enabled: device.enabled,
+  });
+  useEffect(() => {
+    setForm({
+      name: device.name,
+      host: device.host,
+      port: device.port?.toString() ?? '',
+      protocol: device.protocol,
+      modelId: device.modelId,
+      groupId: device.groupId,
+      credentialId: device.credentialId ?? '',
+      intervalSec: device.intervalSec?.toString() ?? '',
+      enabled: device.enabled,
+    });
+  }, [device]);
+
+  const groups = useQuery({
+    queryKey: ['groups', orgId],
+    queryFn: () => api<Option[]>(`/orgs/${orgId}/groups`),
+    enabled: !!orgId,
+  });
+  const creds = useQuery({
+    queryKey: ['credentials', orgId],
+    queryFn: () => api<Option[]>(`/orgs/${orgId}/credentials`),
+    enabled: !!orgId,
+  });
+  const models = useQuery({
+    queryKey: ['models'],
+    queryFn: () => api<{ id: string; displayName: string }[]>('/models'),
+  });
+
+  const save = useMutation({
+    mutationFn: () =>
+      patch<Device>(`/orgs/${orgId}/devices/${device.id}`, {
+        name: form.name,
+        host: form.host,
+        port: form.port ? Number(form.port) : null,
+        protocol: form.protocol,
+        modelId: form.modelId,
+        groupId: form.groupId,
+        credentialId: form.credentialId || null,
+        intervalSec: form.intervalSec ? Number(form.intervalSec) : null,
+        enabled: form.enabled,
+      }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['device', orgId, device.id] });
+      qc.invalidateQueries({ queryKey: ['devices', orgId] });
+      qc.invalidateQueries({ queryKey: ['versions', orgId, device.id] });
+    },
+  });
+
+  const select = 'flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm';
+
+  return (
+    <Card className="mt-4 max-w-lg">
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          save.mutate();
+        }}
+      >
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="e-name">Name</Label>
+            <Input
+              id="e-name"
+              required
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="e-host">Host</Label>
+            <Input
+              id="e-host"
+              required
+              value={form.host}
+              onChange={(e) => setForm((f) => ({ ...f, host: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="e-port">Port (blank = default)</Label>
+            <Input
+              id="e-port"
+              type="number"
+              value={form.port}
+              onChange={(e) => setForm((f) => ({ ...f, port: e.target.value }))}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="e-protocol">Protocol</Label>
+            <select
+              id="e-protocol"
+              className={select}
+              value={form.protocol}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, protocol: e.target.value as 'ssh' | 'telnet' }))
+              }
+            >
+              <option value="ssh">ssh</option>
+              <option value="telnet">telnet</option>
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="e-model">Model</Label>
+            <select
+              id="e-model"
+              className={select}
+              value={form.modelId}
+              onChange={(e) => setForm((f) => ({ ...f, modelId: e.target.value }))}
+            >
+              {models.data?.map((m) => (
+                <option key={m.id} value={m.id}>
+                  {m.displayName}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="e-group">Group</Label>
+            <select
+              id="e-group"
+              className={select}
+              value={form.groupId}
+              onChange={(e) => setForm((f) => ({ ...f, groupId: e.target.value }))}
+            >
+              {groups.data?.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="e-cred">Credential</Label>
+            <select
+              id="e-cred"
+              className={select}
+              value={form.credentialId}
+              onChange={(e) => setForm((f) => ({ ...f, credentialId: e.target.value }))}
+            >
+              <option value="">Group default</option>
+              {creds.data?.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="e-interval">Interval seconds (blank = group default)</Label>
+            <Input
+              id="e-interval"
+              type="number"
+              min={60}
+              value={form.intervalSec}
+              onChange={(e) => setForm((f) => ({ ...f, intervalSec: e.target.value }))}
+            />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={form.enabled}
+            onChange={(e) => setForm((f) => ({ ...f, enabled: e.target.checked }))}
+          />
+          Scheduled backups enabled
+        </label>
+        <ErrorText>{save.error?.message}</ErrorText>
+        {save.isSuccess && <p className="text-sm text-success">Saved.</p>}
+        <Button type="submit" disabled={save.isPending}>
+          Save changes
+        </Button>
+      </form>
+    </Card>
   );
 }

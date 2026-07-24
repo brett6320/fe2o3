@@ -10,6 +10,7 @@ import {
   LogOut,
   Moon,
   Router,
+  ScrollText,
   Settings,
   Sun,
   User,
@@ -31,6 +32,7 @@ const nav = [
   { to: '/hooks', label: 'Hooks', icon: Webhook },
   { to: '/users', label: 'Users', icon: Users },
   { to: '/api-keys', label: 'API keys', icon: Braces },
+  { to: '/audit', label: 'Audit', icon: ScrollText },
   { to: '/settings', label: 'Settings', icon: Settings },
 ] as const;
 
