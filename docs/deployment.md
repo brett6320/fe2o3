@@ -22,7 +22,7 @@ Everything else is configured in the web UI; these bootstrap the process.
 | `FE2O3_DATA_DIR` | `./.data` | Data directory: git repos, PGlite database, secret key, plugin drivers |
 | `FE2O3_DATABASE_URL` | *(unset)* | PostgreSQL connection string. Unset ⇒ embedded PGlite in the data dir |
 | `FE2O3_SECRET_KEY` | auto-generated | Optional initial key, 64 hex chars (32 bytes). If unset, a keyring is generated at `<dataDir>/keys.json` on first boot |
-| `FE2O3_BASE_URL` | `http://localhost:8442` | Public URL — **required for passkeys** (WebAuthn RP ID) |
+| `FE2O3_BASE_URL` | `http://localhost:8442` | Public URL — **required for passkeys** (WebAuthn RP ID). This env var is authoritative; the Settings page value is not applied yet |
 | `FE2O3_LOG_LEVEL` | `info` | pino log level |
 
 > **Back up** `<dataDir>/keys.json` (or `FE2O3_SECRET_KEY` if you pinned it).

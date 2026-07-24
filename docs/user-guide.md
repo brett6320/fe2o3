@@ -18,25 +18,32 @@ when the wizard finishes.
   and implicitly has admin in every org.
 - **Group** — a set of devices; maps to a subdirectory in the org's git repo and
   provides default credential and backup interval.
-- **Credential** — login secrets (username/password, enable password, SSH key).
-  Encrypted at rest; **write-only** — values are never returned by UI or API.
+- **Credential** — login secrets (username/password, enable password, SSH private
+  key + passphrase). Encrypted at rest; **write-only** — values are never
+  returned by UI or API, only `has…` flags.
 - **Model / driver** — how fe2o3 talks to a vendor's CLI (see Models page).
 
 Use the org switcher at the top of the sidebar if you belong to several orgs.
 
 ## Backing up your first device
 
-1. **Credentials** → *Add credential* — the device login.
+1. **Credentials** → *Add credential* — the device login. Password and/or an
+   SSH private key (PEM/OpenSSH) with optional passphrase; key auth is used
+   automatically when present.
 2. **Groups** → *Add group* — e.g. `Core` with path slug `core`; pick the
    default credential and interval.
 3. **Devices** → *Add device* — name (becomes the git filename), host, port,
-   model, group.
+   model, group, and optionally a credential (blank = the group's default).
 4. Open the device page → **Backup now**.
 
-The **Config** tab shows the latest capture with a version dropdown. The
-**Versions** tab lets you pick two versions and see a colorized diff. The
-**Jobs** tab lists every run; admins/operators can expand a job to read the
-full session transcript (secrets scrubbed).
+The **Config** tab shows the latest capture with a version dropdown — the
+selected version's sha is kept in the URL (`?sha=…`), so a specific version can
+be bookmarked or shared. The **Versions** tab lets you pick two versions and
+see a colorized diff. The **Jobs** tab lists every run; admins/operators can
+expand a job to read the full session transcript (secrets scrubbed). Admins
+also get an **Edit** tab: rename, move group (both preserved in git history),
+change host/port/protocol/model, override the credential or interval, and
+enable/disable scheduling.
 
 Backups then run automatically on the device interval (or its group's default).
 Failures back off exponentially (interval × 2ⁿ, capped at 6 h) and show on the
@@ -78,8 +85,9 @@ On **Profile**:
   by itself. Requires the instance to be served over HTTPS with a correct
   `FE2O3_BASE_URL`.
 
-Superadmins can reset a locked-out user's password from **Users**; disabling a
-user kills their sessions immediately.
+Superadmins can reset a locked-out user's password via the API
+(`PATCH /users/:id` with `password`); disabling a user from **Users** kills
+their sessions immediately.
 
 ## API keys
 
@@ -92,11 +100,17 @@ user kills their sessions immediately.
 
 Keys can expire, show last-used time, and can be revoked instantly.
 
+## Audit log (superadmin)
+
+**Audit** lists every authenticated mutating API call — who (user or API key),
+action, resource, IP, timestamp.
+
 ## Settings (superadmin)
 
-- **Base URL** — public URL, used for passkey origin binding
-- **Git author** — name/email on backup commits
-- **Concurrency** — max simultaneous device sessions
+- **Base URL**, **Git author**, **Concurrency** — stored for upcoming use.
+  > **Note:** these values are not applied yet. Today the passkey origin comes
+  > from the `FE2O3_BASE_URL` environment variable, backup commits are authored
+  > as `fe2o3 <fe2o3@localhost>`, and scheduler concurrency is fixed at 20.
 
 ## The git repositories
 

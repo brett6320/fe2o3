@@ -50,13 +50,14 @@ Admin (superadmin):
 | `GET/POST/DELETE /orgs[/:orgId]` | organizations |
 | `GET/PATCH /settings` | instance settings |
 | `GET /admin/keys` · `POST /admin/keys/rotate` · `DELETE /admin/keys/:id` | encryption key rotation |
+| `GET /audit?limit=` | mutation audit trail (user, action, resource, IP) |
 
 Org-scoped (`/orgs/:orgId/...`, role in parentheses):
 
 | Method & path | Notes |
 |---|---|
 | `GET/PUT/DELETE .../members` | memberships (admin to modify) |
-| `GET/POST/PATCH/DELETE .../credentials[/:id]` | secrets write-only (admin) |
+| `GET/POST/PATCH/DELETE .../credentials[/:id]` | secrets write-only (admin); accepts `password`, `enablePassword`, `sshPrivateKey`, `sshKeyPassphrase` |
 | `GET/POST/PATCH/DELETE .../groups[/:id]` | groups (admin) |
 | `GET/POST/PATCH/DELETE .../devices[/:id]` | devices (admin) |
 | `POST .../devices/import` | CSV bulk import (admin) |
