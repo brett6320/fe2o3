@@ -11,6 +11,8 @@ export interface FakeDevice {
   password: string;
   /** Login banner pages shown before the first prompt, separated by --More--. */
   bannerPages?: string[];
+  /** Render the --More-- prompt in reverse video with trailing ANSI, like real IOS. */
+  ansiMore?: boolean;
 }
 
 const hostKey = generateKeyPairSync('rsa', {
@@ -57,7 +59,10 @@ export async function startFakeDevice(device: FakeDevice) {
             const page = pendingPages.shift();
             if (page !== undefined) stream.write(page.replace(/\n/g, '\r\n'));
             if (pendingPages.length > 0) {
-              stream.write('\r\n --More-- ');
+              const more = device.ansiMore
+                ? '\r\n\x1b[7m --More-- \x1b[m\r        \r'
+                : '\r\n --More-- ';
+              stream.write(more);
             } else {
               stream.write(`\r\n${device.prompt} `);
             }

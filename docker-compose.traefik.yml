@@ -15,8 +15,13 @@
 
 services:
   fe2o3:
-    build: .
-    # image: ghcr.io/you/fe2o3:latest   # once published
+    # Pull the published image and always fetch the newest digest on `up`.
+    image: ghcr.io/brett6320/fe2o3:latest
+    pull_policy: always
+    # To build locally instead, comment the two lines above and uncomment:
+    #   build: .
+    # …but then a plain `up -d` reuses the cached image — rebuild explicitly:
+    #   docker compose -f docker-compose.traefik.yml build --no-cache fe2o3
     restart: unless-stopped
     environment:
       FE2O3_BASE_URL: https://fe2o3.example.com   # required for passkeys (WebAuthn RP ID)
