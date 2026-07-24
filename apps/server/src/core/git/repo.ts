@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { execa } from 'execa';
+import { type MirrorConfig, pushMirror } from './mirror.js';
 
 /**
  * One git repository per org, working-tree layout `<group_slug>/<device_name>`.
@@ -79,6 +80,11 @@ export class OrgRepo {
       await this.git(['mv', from, to]);
       await this.git(['commit', '-m', `${opts.fromName}: moved to ${to}`]);
     });
+  }
+
+  /** Push this repo to its external mirror, serialized with commits. */
+  mirror(cfg: MirrorConfig): Promise<void> {
+    return this.enqueue(() => pushMirror(this.dir, cfg));
   }
 
   async listVersions(groupSlug: string, deviceName: string, limit = 100) {

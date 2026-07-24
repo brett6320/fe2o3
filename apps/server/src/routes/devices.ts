@@ -247,7 +247,7 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
         deviceName: row.device.name,
       });
       const outcome = await backupDevice(
-        { db: app.db, config: app.config, registry: app.registry },
+        { db: app.db, config: app.config, registry: app.registry, log: app.log },
         row.device.id,
         'manual',
       );

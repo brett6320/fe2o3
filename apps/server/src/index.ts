@@ -18,6 +18,7 @@ const scheduler = new Scheduler({
   config,
   registry: app.registry,
   bus: app.bus,
+  log: app.log,
 });
 
 try {

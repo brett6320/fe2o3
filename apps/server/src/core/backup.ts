@@ -17,7 +17,12 @@ export interface BackupOutcome {
 
 /** Run a backup for one device end-to-end: session, scrub, commit, job row. */
 export async function backupDevice(
-  ctx: { db: Db; config: AppConfig; registry: DriverRegistry },
+  ctx: {
+    db: Db;
+    config: AppConfig;
+    registry: DriverRegistry;
+    log?: { warn?: (o: unknown, m: string) => void };
+  },
   deviceId: string,
   trigger: 'scheduled' | 'manual',
 ): Promise<BackupOutcome> {
@@ -94,6 +99,19 @@ export async function backupDevice(
       content: result.configText,
       message: `${device.name}: backup (${trigger})`,
     });
+
+    // Mirror the org repo to its external remote when the config changed.
+    if (commitSha && org.mirrorUrl) {
+      const dec = (v: string | null) => (v ? decryptSecret(v, config.keyring) : undefined);
+      repo
+        .mirror({
+          url: org.mirrorUrl,
+          branch: org.mirrorBranch,
+          token: dec(org.mirrorTokenEnc),
+          sshKey: dec(org.mirrorSshKeyEnc),
+        })
+        .catch((err) => ctx.log?.warn?.({ err, org: org.slug }, 'mirror push failed'));
+    }
 
     // Scrub credential values from the stored transcript
     let log = result.transcript;
