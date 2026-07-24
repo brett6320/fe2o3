@@ -18,7 +18,7 @@ something changes.
 - **Git-versioned configs** — one repo per org, one file per device, full history,
   diffs, and no-op detection so unchanged backups create no commits.
 - **Vendor drivers** — Cisco IOS/IOS-XE, Juniper JunOS, Arista EOS, MikroTik
-  RouterOS, Ubiquiti EdgeOS, and generic Linux/VyOS built in; drop-in plugin
+  RouterOS, Ubiquiti EdgeOS, Cradlepoint NCOS, Digi (DAL), and generic Linux/VyOS built in; drop-in plugin
   drivers for anything else.
 - **SSH and telnet** transports, including legacy key-exchange/cipher support for
   old gear.
