@@ -12,6 +12,8 @@ export default defineDriver({
   errorPatterns: [/^bad command name/m, /^syntax error/m],
   comment: '# ',
   init: [],
+  // RouterOS submits commands on carriage return, not line feed.
+  lineEnding: '\r',
   commands: [{ cmd: '/export', name: 'export' }],
   scrubbers: [
     // volatile header: "# jan/02/2026 03:04:05 by RouterOS 7.x"

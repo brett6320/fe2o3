@@ -13,6 +13,10 @@ export interface FakeDevice {
   bannerPages?: string[];
   /** Render the --More-- prompt in reverse video with trailing ANSI, like real IOS. */
   ansiMore?: boolean;
+  /** Static banner text emitted once before the first prompt (no pagination). */
+  banner?: string;
+  /** Only submit a command on carriage return (\r), like MikroTik RouterOS. */
+  requireCr?: boolean;
 }
 
 const hostKey = generateKeyPairSync('rsa', {
@@ -73,7 +77,8 @@ export async function startFakeDevice(device: FakeDevice) {
             stream.write('Welcome to fake device\r\n');
             writePage();
           } else {
-            stream.write(`Welcome to fake device\r\n${device.prompt} `);
+            if (device.banner) stream.write(`${device.banner.replace(/\n/g, '\r\n')}\r\n`);
+            stream.write(`${device.banner ? '' : 'Welcome to fake device\r\n'}${device.prompt} `);
           }
 
           stream.on('data', (data: Buffer) => {
@@ -83,7 +88,10 @@ export async function startFakeDevice(device: FakeDevice) {
               return;
             }
             lineBuf += data.toString('utf8');
-            let idx = lineBuf.indexOf('\n');
+            const sep = device.requireCr ? '\r' : '\n';
+            // when CR is required, drop stray line feeds so they don't submit
+            if (device.requireCr) lineBuf = lineBuf.replace(/\n/g, '');
+            let idx = lineBuf.indexOf(sep);
             while (idx >= 0) {
               const line = lineBuf.slice(0, idx).replace(/\r$/, '');
               lineBuf = lineBuf.slice(idx + 1);
@@ -94,7 +102,7 @@ export async function startFakeDevice(device: FakeDevice) {
                 if (Array.isArray(body)) {
                   pendingPages = [...body];
                   writePage();
-                  idx = lineBuf.indexOf('\n');
+                  idx = lineBuf.indexOf(sep);
                   continue;
                 }
                 if (body !== undefined) {
@@ -107,7 +115,7 @@ export async function startFakeDevice(device: FakeDevice) {
                 }
               }
               stream.write(`${device.prompt} `);
-              idx = lineBuf.indexOf('\n');
+              idx = lineBuf.indexOf(sep);
             }
           });
         });

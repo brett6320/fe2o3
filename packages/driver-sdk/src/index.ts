@@ -64,6 +64,11 @@ export interface DriverSpec {
   scrubbers: Scrubber[];
   telnetLogin?: TelnetLoginSpec;
   enable?: EnableSpec;
+  /**
+   * Line terminator sent to submit a command. Most gear accepts `\n`; some
+   * (e.g. MikroTik RouterOS) only treat carriage return as Enter. Default `\n`.
+   */
+  lineEnding?: '\n' | '\r' | '\r\n';
   /** Per-device variables this driver honors (shown in the UI device form). */
   vars?: DriverVar[];
 }

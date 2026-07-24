@@ -76,6 +76,8 @@ function extractBody(raw: string, cmd: string): string {
 export async function runBackup(session: DeviceSession): Promise<ExecutorResult> {
   const { driver } = session;
   const telnet = session.protocol === 'telnet';
+  const eol = driver.lineEnding ?? '\n';
+  const sendCmd = (line: string) => transport.sendRaw(`${line}${eol}`);
   const transport: Transport = telnet
     ? await connectTelnet(session.connect)
     : await connectSsh(session.connect);
@@ -93,25 +95,25 @@ export async function runBackup(session: DeviceSession): Promise<ExecutorResult>
     await expectPaged(transport, driver.prompt);
 
     if (driver.enable && session.enablePassword) {
-      await transport.send(driver.enable.cmd);
+      await sendCmd(driver.enable.cmd);
       const res = await expectPaged(
         transport,
         new RegExp(`(?:${driver.enable.passPrompt.source})|(?:${driver.prompt.source})`, 'm'),
       );
       if (driver.enable.passPrompt.test(res)) {
-        await transport.send(session.enablePassword);
+        await sendCmd(session.enablePassword);
         await expectPaged(transport, driver.prompt);
       }
     }
 
     for (const step of driver.init ?? []) {
-      await transport.send(step.cmd);
+      await sendCmd(step.cmd);
       await expectPaged(transport, step.expect ?? driver.prompt);
     }
 
     const sections: string[] = [];
     for (const spec of driver.commands) {
-      await transport.send(spec.cmd);
+      await sendCmd(spec.cmd);
       const raw = await expectPaged(transport, driver.prompt);
       const errorMatch = (driver.errorPatterns ?? []).map((p) => raw.match(p)?.[0]).find(Boolean);
       if (errorMatch) {
