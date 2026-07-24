@@ -6,6 +6,7 @@ import {
   Building2,
   Cpu,
   FolderTree,
+  Globe,
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -119,6 +120,19 @@ export function AppShell() {
         </div>
         <OrgSwitcher />
         <nav className="flex-1 space-y-1 p-2">
+          {user.isSuperadmin && (
+            <Link
+              to="/overview"
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground',
+                'hover:bg-accent hover:text-accent-foreground',
+                '[&.active]:bg-accent [&.active]:font-medium [&.active]:text-accent-foreground',
+              )}
+            >
+              <Globe className="size-4" />
+              Overview
+            </Link>
+          )}
           {nav.map(({ to, label, icon: Icon }) => (
             <Link
               key={to}
