@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
-import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
+import { Button, Card, ErrorText, Input, Label, Textarea } from '@/components/ui';
 import { api, del, post } from '@/lib/api';
 import { useOrg } from '@/lib/org';
 
@@ -17,7 +17,14 @@ export function CredentialsPage() {
   const { orgId, role } = useOrg();
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ name: '', username: '', password: '', enablePassword: '' });
+  const [form, setForm] = useState({
+    name: '',
+    username: '',
+    password: '',
+    enablePassword: '',
+    sshPrivateKey: '',
+    sshKeyPassphrase: '',
+  });
 
   const creds = useQuery({
     queryKey: ['credentials', orgId],
@@ -27,11 +34,23 @@ export function CredentialsPage() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ['credentials', orgId] });
 
   const create = useMutation({
-    mutationFn: () => post<Credential>(`/orgs/${orgId}/credentials`, form),
+    // omit empty secrets so they read as "not set" rather than cleared
+    mutationFn: () =>
+      post<Credential>(
+        `/orgs/${orgId}/credentials`,
+        Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== '' || k === 'username')),
+      ),
     onSuccess: () => {
       invalidate();
       setShowCreate(false);
-      setForm({ name: '', username: '', password: '', enablePassword: '' });
+      setForm({
+        name: '',
+        username: '',
+        password: '',
+        enablePassword: '',
+        sshPrivateKey: '',
+        sshKeyPassphrase: '',
+      });
     },
   });
   const remove = useMutation({
@@ -99,6 +118,33 @@ export function CredentialsPage() {
                 onChange={(e) => setForm((f) => ({ ...f, enablePassword: e.target.value }))}
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="c-key">SSH private key (optional)</Label>
+              <Textarea
+                id="c-key"
+                rows={6}
+                spellCheck={false}
+                className="font-mono text-xs"
+                placeholder={'-----BEGIN OPENSSH PRIVATE KEY-----\n…'}
+                value={form.sshPrivateKey}
+                onChange={(e) => setForm((f) => ({ ...f, sshPrivateKey: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">
+                PEM / OpenSSH format. Used instead of (or alongside) the password for SSH devices.
+              </p>
+            </div>
+            {form.sshPrivateKey !== '' && (
+              <div className="space-y-2">
+                <Label htmlFor="c-key-pass">Key passphrase (if encrypted)</Label>
+                <Input
+                  id="c-key-pass"
+                  type="password"
+                  autoComplete="off"
+                  value={form.sshKeyPassphrase}
+                  onChange={(e) => setForm((f) => ({ ...f, sshKeyPassphrase: e.target.value }))}
+                />
+              </div>
+            )}
             <ErrorText>{create.error?.message}</ErrorText>
             <Button type="submit" disabled={create.isPending}>
               Create credential
