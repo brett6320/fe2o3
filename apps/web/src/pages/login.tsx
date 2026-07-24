@@ -1,15 +1,19 @@
 import { startAuthentication } from '@simplewebauthn/browser';
-import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useMutation, useQuery } from '@tanstack/react-query';
+import { Navigate, useNavigate } from '@tanstack/react-router';
 import { KeyRound } from 'lucide-react';
 import { useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
-import { post } from '@/lib/api';
+import { api, post } from '@/lib/api';
 import { type SessionUser, useInvalidateSession } from '@/lib/session';
 
 export function LoginPage() {
   const navigate = useNavigate();
   const invalidate = useInvalidateSession();
+  const status = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => api<{ needsSetup: boolean }>('/setup/status'),
+  });
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [mfaStep, setMfaStep] = useState(false);
@@ -44,6 +48,8 @@ export function LoginPage() {
     },
     onSuccess: finish,
   });
+
+  if (status.data?.needsSetup) return <Navigate to="/setup" />;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
