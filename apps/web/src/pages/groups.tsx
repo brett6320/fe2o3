@@ -1,8 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { Link } from '@tanstack/react-router';
+import { ChevronDown, ChevronRight } from 'lucide-react';
+import { Fragment, useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
 import { api, del, patch, post } from '@/lib/api';
 import { useOrg } from '@/lib/org-context';
+import type { Device } from './devices';
+
+const STATUS_DOT: Record<Device['lastStatus'], string> = {
+  never: 'bg-muted-foreground',
+  running: 'bg-blue-500',
+  success: 'bg-green-500',
+  failed: 'bg-red-500',
+};
 
 interface Group {
   id: string;
@@ -82,11 +92,26 @@ export function GroupsPage() {
     defaultIntervalSec: '3600',
   });
 
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const toggleExpand = (id: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
   const groups = useQuery({
     queryKey: ['groups', orgId],
     queryFn: () => api<Group[]>(`/orgs/${orgId}/groups`),
     enabled: !!orgId,
   });
+  const devices = useQuery({
+    queryKey: ['devices', orgId],
+    queryFn: () => api<Device[]>(`/orgs/${orgId}/devices`),
+    enabled: !!orgId,
+  });
+  const devicesByGroup = (id: string) => devices.data?.filter((d) => d.groupId === id) ?? [];
   const creds = useQuery({
     queryKey: ['credentials', orgId],
     queryFn: () => api<Credential[]>(`/orgs/${orgId}/credentials`),
@@ -300,26 +325,80 @@ export function GroupsPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border bg-card">
-            {groups.data?.map((g) => (
-              <tr key={g.id}>
-                <td className="px-4 py-2 font-medium">{g.name}</td>
-                <td className="px-4 py-2 font-mono text-xs">{g.pathSlug}/</td>
-                <td className="px-4 py-2">{g.deviceCount ?? 0}</td>
-                <td className="px-4 py-2">{Math.round(g.defaultIntervalSec / 60)} min</td>
-                <td className="px-4 py-2 text-right">
-                  {role === 'admin' && (
-                    <div className="flex justify-end gap-2">
-                      <Button variant="outline" onClick={() => startEdit(g)}>
-                        Edit
-                      </Button>
-                      <Button variant="destructive" onClick={() => remove.mutate(g.id)}>
-                        Delete
-                      </Button>
-                    </div>
+            {groups.data?.map((g) => {
+              const isOpen = expanded.has(g.id);
+              const groupDevices = devicesByGroup(g.id);
+              const count = g.deviceCount ?? groupDevices.length;
+              return (
+                <Fragment key={g.id}>
+                  <tr>
+                    <td className="px-4 py-2 font-medium">
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(g.id)}
+                        className="flex items-center gap-2 hover:text-foreground"
+                        aria-expanded={isOpen}
+                      >
+                        {isOpen ? (
+                          <ChevronDown className="size-4 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+                        )}
+                        {g.name}
+                      </button>
+                    </td>
+                    <td className="px-4 py-2 font-mono text-xs">{g.pathSlug}/</td>
+                    <td className="px-4 py-2">{count}</td>
+                    <td className="px-4 py-2">{Math.round(g.defaultIntervalSec / 60)} min</td>
+                    <td className="px-4 py-2 text-right">
+                      {role === 'admin' && (
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => startEdit(g)}>
+                            Edit
+                          </Button>
+                          <Button variant="destructive" onClick={() => remove.mutate(g.id)}>
+                            Delete
+                          </Button>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                  {isOpen && (
+                    <tr className="bg-muted/30">
+                      <td colSpan={5} className="px-4 py-2">
+                        {groupDevices.length === 0 ? (
+                          <p className="py-2 pl-6 text-sm text-muted-foreground">
+                            No devices in this group
+                          </p>
+                        ) : (
+                          <ul className="space-y-1 pl-6">
+                            {groupDevices.map((d) => (
+                              <li key={d.id} className="flex items-center gap-3 text-sm">
+                                <span
+                                  className={`size-2 shrink-0 rounded-full ${STATUS_DOT[d.lastStatus]}`}
+                                  title={d.lastStatus}
+                                />
+                                <Link
+                                  to="/devices/$deviceId"
+                                  params={{ deviceId: d.id }}
+                                  className="font-medium text-primary hover:underline"
+                                >
+                                  {d.name}
+                                </Link>
+                                <span className="font-mono text-xs text-muted-foreground">
+                                  {d.host}
+                                </span>
+                                <span className="text-xs text-muted-foreground">{d.modelId}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </td>
+                    </tr>
                   )}
-                </td>
-              </tr>
-            ))}
+                </Fragment>
+              );
+            })}
             {groups.data?.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
