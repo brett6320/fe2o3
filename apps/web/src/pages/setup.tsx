@@ -1,13 +1,18 @@
-import { useMutation } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Navigate, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
-import { post } from '@/lib/api';
+import { api, post } from '@/lib/api';
 import { type SessionUser, useInvalidateSession } from '@/lib/session';
 
 export function SetupPage() {
   const navigate = useNavigate();
+  const qc = useQueryClient();
   const invalidate = useInvalidateSession();
+  const status = useQuery({
+    queryKey: ['setup-status'],
+    queryFn: () => api<{ needsSetup: boolean }>('/setup/status'),
+  });
   const [form, setForm] = useState({
     email: '',
     password: '',
@@ -22,10 +27,17 @@ export function SetupPage() {
   const setup = useMutation({
     mutationFn: () => post<SessionUser>('/setup', form),
     onSuccess: async () => {
+      qc.setQueryData(['setup-status'], { needsSetup: false });
       await invalidate();
       navigate({ to: '/' });
     },
   });
+
+  // Setup is one-shot: once an account exists the wizard is gone for good
+  // (the server also rejects further POST /setup with 409).
+  if (status.data && !status.data.needsSetup && !setup.isSuccess && !setup.isPending) {
+    return <Navigate to="/login" />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
