@@ -12,9 +12,47 @@
         (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
       document.documentElement.classList.toggle('dark', dark);
     </script>
+    <style>
+      /* Critical, inline-only styles for the pre-app loader so it renders
+         correctly even before the main stylesheet has loaded. Colors mirror the
+         app's --background (light/dark) and --primary. */
+      #app-loading {
+        position: fixed;
+        inset: 0;
+        display: grid;
+        place-items: center;
+        background: #fafafa;
+      }
+      html.dark #app-loading {
+        background: #0e0f12;
+      }
+      #app-loading .spinner {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 9999px;
+        border: 3px solid rgba(130, 130, 140, 0.25);
+        border-top-color: #3b82f6;
+        animation: app-spin 0.7s linear infinite;
+      }
+      @keyframes app-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #app-loading .spinner {
+          animation-duration: 1.6s;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Shown until style assets are ready and React mounts (see main.tsx). -->
+      <div id="app-loading" role="status" aria-label="Loading">
+        <div class="spinner"></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
