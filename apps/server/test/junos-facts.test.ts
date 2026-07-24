@@ -171,6 +171,59 @@ Power Supply 0
     });
   });
 
+  it('parses an EX Virtual Chassis / switch stack (version only in JUNOS [..] lines)', () => {
+    const vc = `# --- version ---
+fpc0:
+--------------------------------------------------------------------------
+Model: ex2200-c-12p-2g
+JUNOS Base OS boot [12.3R12-S21]
+JUNOS Base OS Software Suite [12.3R12-S21]
+JUNOS Kernel Software Suite [12.3R12-S21]
+
+fpc1:
+--------------------------------------------------------------------------
+Model: ex2200-c-12t-2g
+JUNOS Base OS boot [12.3R12-S21]
+JUNOS Kernel Software Suite [12.3R12-S21]
+
+{master:1}
+
+# --- hardware ---
+Hardware inventory:
+Item             Version  Part number  Serial number     Description
+Chassis                                GP0212142211      Virtual Chassis
+Routing Engine 0 REV 16   650-036547   GR0217290236      EX2200-C-12P-2G, POE+
+Routing Engine 1 REV 05   650-036546   GP0212142211      EX2200-C-12T-2G
+FPC 0            REV 16   650-036547   GR0217290236      EX2200-C-12P-2G, POE+
+  CPU                     BUILTIN      BUILTIN           FPC CPU
+  PIC 0                   BUILTIN      BUILTIN           12x 10/100/1000 Base-T
+  PIC 1          REV 16   650-036547   GR0217290236      2x (10/100/1000 Base-T or GE SFP)
+  Power Supply 0                                         PS 180W AC
+FPC 1            REV 05   650-036546   GP0212142211      EX2200-C-12T-2G
+  CPU                     BUILTIN      BUILTIN           FPC CPU
+  PIC 0                   BUILTIN      BUILTIN           12x 10/100/1000 Base-T
+  PIC 1          REV 05   650-036546   GP0212142211      2x (10/100/1000 Base-T or GE SFP)
+
+{master:1}
+`;
+    const f = junos.facts?.(vc);
+    // version comes from the "JUNOS ... [x]" lines (no Junos:/Software Release line)
+    expect(f?.osVersion).toBe('12.3R12-S21');
+    expect(f?.model).toBe('ex2200-c-12p-2g');
+    expect(f?.serial).toBe('GP0212142211');
+    // unified VC inventory: Chassis, RE0, RE1, FPC 0, FPC 1
+    expect(f?.inventory?.map((i) => i.name)).toEqual([
+      'Chassis',
+      'Routing Engine 0',
+      'Routing Engine 1',
+      'FPC 0',
+      'FPC 1',
+    ]);
+    const fpc0 = f?.inventory?.find((i) => i.name === 'FPC 0');
+    expect(fpc0?.children?.map((c) => c.name)).toEqual(['CPU', 'PIC 0', 'PIC 1', 'Power Supply 0']);
+    expect(fpc0?.serial).toBe('GR0217290236');
+  });
+
   it('returns null when there is nothing to parse', () => {
     expect(junos.facts?.('# --- configuration ---\nversion 1;\n')).toBeNull();
   });
