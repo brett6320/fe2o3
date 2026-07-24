@@ -17,7 +17,7 @@ vi.mock('drizzle-orm/node-postgres/migrator', () => ({
   }),
 }));
 vi.mock('drizzle-orm/node-postgres', () => ({ drizzle: vi.fn(() => ({}) as never) }));
-vi.mock('pg', () => ({ default: { Pool: vi.fn(() => ({})) } }));
+vi.mock('pg', () => ({ default: { Pool: vi.fn(() => ({ on: vi.fn() })) } }));
 
 describe('database startup retry', () => {
   it('retries transient auth/connection errors then succeeds', async () => {

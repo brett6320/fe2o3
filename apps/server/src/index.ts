@@ -24,6 +24,12 @@ const scheduler = new Scheduler({
   log: app.log,
 });
 
+// Last-resort safety net: a transient DB/network error must never crash the
+// backup daemon. Log unhandled rejections instead of letting Node exit.
+process.on('unhandledRejection', (reason) => {
+  app.log.error({ reason }, 'unhandled promise rejection (kept alive)');
+});
+
 try {
   await app.listen({ port: config.port, host: config.host });
   await scheduler.start();

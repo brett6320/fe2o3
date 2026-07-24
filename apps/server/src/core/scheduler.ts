@@ -29,15 +29,20 @@ export class Scheduler {
   }
 
   async start() {
-    // Recover devices stuck in `running` from an unclean shutdown
-    await this.ctx.db
-      .update(devices)
-      .set({ lastStatus: 'failed', lastError: 'interrupted by restart' })
-      .where(eq(devices.lastStatus, 'running'));
-    await this.ctx.db
-      .update(jobs)
-      .set({ status: 'failed', error: 'interrupted by restart', finishedAt: new Date() })
-      .where(or(eq(jobs.status, 'running'), eq(jobs.status, 'queued')));
+    // Recover devices stuck in `running` from an unclean shutdown (best-effort;
+    // a DB hiccup here must not stop the scheduler from starting).
+    try {
+      await this.ctx.db
+        .update(devices)
+        .set({ lastStatus: 'failed', lastError: 'interrupted by restart' })
+        .where(eq(devices.lastStatus, 'running'));
+      await this.ctx.db
+        .update(jobs)
+        .set({ status: 'failed', error: 'interrupted by restart', finishedAt: new Date() })
+        .where(or(eq(jobs.status, 'running'), eq(jobs.status, 'queued')));
+    } catch (err) {
+      this.ctx.log?.warn?.({ err }, 'scheduler startup recovery failed');
+    }
 
     this.timer = setInterval(() => void this.tick(), TICK_MS);
     this.timer.unref();
@@ -50,8 +55,9 @@ export class Scheduler {
     await this.queue.onIdle();
   }
 
-  async tick() {
-    const due = await this.ctx.db
+  /** Devices due for a backup now. */
+  private selectDue() {
+    return this.ctx.db
       .select({
         id: devices.id,
         intervalSec: devices.intervalSec,
@@ -68,6 +74,18 @@ export class Scheduler {
         ),
       )
       .limit(200);
+  }
+
+  async tick() {
+    let due: Awaited<ReturnType<typeof this.selectDue>>;
+    try {
+      due = await this.selectDue();
+    } catch (err) {
+      // A transient DB error (e.g. a brief Postgres restart / reconnect) must
+      // not crash the scheduler — log and try again on the next tick.
+      this.ctx.log?.warn?.({ err }, 'scheduler tick query failed; will retry');
+      return;
+    }
 
     for (const d of due) {
       if (this.inFlight.has(d.id)) continue;
