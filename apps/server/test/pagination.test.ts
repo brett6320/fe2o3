@@ -38,4 +38,34 @@ describe('--More-- pagination', () => {
       await fake.close();
     }
   }, 20000);
+
+  it('handles reverse-video --More-- with trailing ANSI (real IOS rendering)', async () => {
+    const fake = await startFakeDevice({
+      prompt: 'router1#',
+      username: 'backup',
+      password: 'pw',
+      ansiMore: true,
+      bannerPages: [
+        'compliance with U.S. and local country laws.',
+        'If you are unable to comply, do not use this product.',
+      ],
+      responses: {
+        'terminal length 0': '',
+        'terminal width 0': '',
+        'show version': 'Cisco IOS Software, Version 15.2(4)M6',
+        'show inventory': 'NAME: Chassis',
+        'show running-config': 'hostname router1\nend',
+      },
+    });
+    try {
+      const result = await runBackup({
+        driver: ios,
+        connect: { host: '127.0.0.1', port: fake.port, username: 'backup', password: 'pw' },
+      });
+      expect(result.configText).toContain('hostname router1');
+      expect(result.configText).not.toContain('--More--');
+    } finally {
+      await fake.close();
+    }
+  }, 20000);
 });

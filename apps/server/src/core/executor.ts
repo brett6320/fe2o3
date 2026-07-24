@@ -15,7 +15,12 @@ export interface DeviceSession {
   enablePassword?: string | undefined;
 }
 
-const MORE_PROMPT = /(?:--\s?More\s?--|<--- More --->)\s*$/;
+// IOS renders `--More--` in reverse video with trailing ANSI/cursor/erase
+// sequences (e.g. `\x1b[7m --More-- \x1b[m\r        \r`), and matching runs
+// against the raw, un-stripped buffer — so tolerate any trailing whitespace,
+// backspaces, carriage returns, or ANSI escape sequences before end-of-buffer.
+// biome-ignore lint/suspicious/noControlCharactersInRegex: matching terminal control output
+const MORE_PROMPT = /(?:--\s?More\s?--|<--- More --->)(?:\x1b\[[0-9;?]*[A-Za-z]|[\s\b\r])*$/;
 
 /**
  * Wait for `pattern`, transparently continuing through `--More--` pagination
