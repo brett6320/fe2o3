@@ -61,10 +61,18 @@ services:
     networks:
       - internal
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U fe2o3 -d fe2o3"]
+      # Authenticate for real (pg_isready passes during the entrypoint's
+      # temporary-server phase, before password auth is available). start_period
+      # covers first-boot DB initialization; the app also retries on startup.
+      test:
+        [
+          'CMD-SHELL',
+          'psql "postgres://fe2o3:$$(cat /run/secrets/db_password)@127.0.0.1:5432/fe2o3" -tAc "select 1" || exit 1',
+        ]
       interval: 5s
-      timeout: 3s
+      timeout: 5s
       retries: 10
+      start_period: 30s
 
 secrets:
   db_password:

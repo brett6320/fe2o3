@@ -1,3 +1,4 @@
+import pino from 'pino';
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
 import { startHookDispatcher } from './core/hooks/dispatcher.js';
@@ -5,9 +6,11 @@ import { Scheduler } from './core/scheduler.js';
 import { createDb } from './db/index.js';
 
 const config = loadConfig();
+const bootLog = pino({ level: config.logLevel });
 const db = await createDb({
   databaseUrl: config.databaseUrl,
   pgliteDataDir: config.pgliteDir,
+  log: bootLog,
 });
 const app = await buildApp({ config, db });
 
