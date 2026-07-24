@@ -158,7 +158,9 @@ export async function backupDevice(
 
     return { jobId: job.id, status: 'success', commitSha };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    // strip NUL — Postgres text columns reject 0x00 (e.g. Sarian transcripts)
+    // biome-ignore lint/suspicious/noControlCharactersInRegex: stripping NUL
+    const message = (err instanceof Error ? err.message : String(err)).replace(/\u0000/g, '');
     await db
       .update(jobs)
       .set({ status: 'failed', finishedAt: new Date(), error: message })
