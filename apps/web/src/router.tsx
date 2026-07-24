@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 import { AppShell } from './components/app-shell';
+import { ApiKeysPage } from './pages/api-keys';
 import { CredentialsPage } from './pages/credentials';
 import { DashboardPage } from './pages/dashboard';
 import { DeviceDetailPage } from './pages/device-detail';
@@ -89,6 +90,12 @@ const modelsRoute = createRoute({
   component: ModelsPage,
 });
 
+const apiKeysRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/api-keys',
+  component: ApiKeysPage,
+});
+
 const placeholder = <P extends string>(path: P, title: string) =>
   createRoute({
     getParentRoute: () => shellRoute,
@@ -109,6 +116,7 @@ const routeTree = rootRoute.addChildren([
     credentialsRoute,
     jobsRoute,
     modelsRoute,
+    apiKeysRoute,
     placeholder('/hooks', 'Hooks'),
     placeholder('/settings', 'Settings'),
   ]),

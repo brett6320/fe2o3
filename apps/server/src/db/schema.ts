@@ -154,6 +154,56 @@ export const jobs = pgTable(
   (t) => [index('jobs_device_created').on(t.deviceId, t.createdAt)],
 );
 
+export const webauthnCredentials = pgTable('webauthn_credentials', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  credentialId: text('credential_id').notNull().unique(),
+  publicKey: text('public_key').notNull(),
+  counter: integer('counter').notNull().default(0),
+  transports: jsonb('transports').$type<string[]>().notNull().default([]),
+  name: text('name').notNull().default('Passkey'),
+  ...timestamps,
+});
+
+export const apiKeys = pgTable('api_keys', {
+  id: id(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  tokenHash: text('token_hash').notNull().unique(),
+  prefix: text('prefix').notNull(),
+  name: text('name').notNull(),
+  scope: text('scope', { enum: ['read', 'write', 'admin'] })
+    .notNull()
+    .default('read'),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true, mode: 'date' }),
+  expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }),
+  ...timestamps,
+});
+
+export const auditLog = pgTable(
+  'audit_log',
+  {
+    id: id(),
+    userId: text('user_id'),
+    apiKeyId: text('api_key_id'),
+    action: text('action').notNull(),
+    resource: text('resource').notNull(),
+    detail: jsonb('detail').$type<Record<string, unknown>>().notNull().default({}),
+    ip: text('ip'),
+    ...timestamps,
+  },
+  (t) => [index('audit_created').on(t.createdAt)],
+);
+
+export const settings = pgTable('settings', {
+  key: text('key').primaryKey(),
+  value: jsonb('value').$type<unknown>().notNull(),
+  ...timestamps,
+});
+
 export const sessions = pgTable('sessions', {
   id: id(),
   tokenHash: text('token_hash').notNull().unique(),

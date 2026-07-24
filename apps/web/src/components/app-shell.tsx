@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, Navigate, Outlet, useNavigate } from '@tanstack/react-router';
 import {
   Activity,
+  Braces,
   Cpu,
   FolderTree,
   KeyRound,
@@ -29,6 +30,7 @@ const nav = [
   { to: '/models', label: 'Models', icon: Cpu },
   { to: '/hooks', label: 'Hooks', icon: Webhook },
   { to: '/users', label: 'Users', icon: Users },
+  { to: '/api-keys', label: 'API keys', icon: Braces },
   { to: '/settings', label: 'Settings', icon: Settings },
 ] as const;
 

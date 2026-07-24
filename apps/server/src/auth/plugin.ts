@@ -2,7 +2,7 @@ import type { OrgRole } from '@fe2o3/shared';
 import { and, eq, gt } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
-import { orgMemberships, sessions, users } from '../db/schema.js';
+import { apiKeys, auditLog, orgMemberships, sessions, users } from '../db/schema.js';
 import { sha256 } from './crypto.js';
 
 export const SESSION_COOKIE = 'fe2o3_session';
@@ -16,6 +16,8 @@ export interface AuthContext {
   totpEnabled: boolean;
   sessionId: string;
   mfaPending: boolean;
+  /** Set when authenticated via API key; used for scope enforcement. */
+  apiKey?: { id: string; scope: 'read' | 'write' | 'admin' };
 }
 
 declare module 'fastify' {
@@ -29,7 +31,62 @@ const roleRank: Record<OrgRole, number> = { readonly: 0, operator: 1, admin: 2 }
 export const authPlugin = fp(async (app) => {
   app.decorateRequest('auth', null);
 
-  app.addHook('onRequest', async (req) => {
+  app.addHook('onRequest', async (req, reply) => {
+    // API key: Authorization: Bearer fe2o3_<prefix>_<secret>
+    const header = req.headers.authorization;
+    if (header?.startsWith('Bearer fe2o3_')) {
+      // format: fe2o3_<prefix>_<secret>; the secret is base64url and may itself contain '_'
+      const rest = header.slice('Bearer fe2o3_'.length);
+      const sep = rest.indexOf('_');
+      const secret = sep >= 0 ? rest.slice(sep + 1) : undefined;
+      if (secret) {
+        const [key] = await app.db
+          .select({
+            id: apiKeys.id,
+            scope: apiKeys.scope,
+            expiresAt: apiKeys.expiresAt,
+            userId: users.id,
+            email: users.email,
+            displayName: users.displayName,
+            isSuperadmin: users.isSuperadmin,
+            totpEnabled: users.totpEnabled,
+            disabled: users.disabled,
+          })
+          .from(apiKeys)
+          .innerJoin(users, eq(apiKeys.userId, users.id))
+          .where(eq(apiKeys.tokenHash, sha256(secret)))
+          .limit(1);
+        if (key && !key.disabled && (!key.expiresAt || key.expiresAt > new Date())) {
+          if (key.scope === 'read' && req.method !== 'GET' && req.method !== 'HEAD') {
+            return reply.code(403).send({
+              statusCode: 403,
+              error: 'Forbidden',
+              message: 'API key scope does not allow writes',
+            });
+          }
+          req.auth = {
+            userId: key.userId,
+            email: key.email,
+            displayName: key.displayName,
+            isSuperadmin: key.isSuperadmin && key.scope === 'admin',
+            totpEnabled: key.totpEnabled,
+            sessionId: '',
+            mfaPending: false,
+            apiKey: { id: key.id, scope: key.scope },
+          };
+          void app.db
+            .update(apiKeys)
+            .set({ lastUsedAt: new Date() })
+            .where(eq(apiKeys.id, key.id))
+            .then(
+              () => {},
+              () => {},
+            );
+        }
+      }
+      return;
+    }
+
     const token = req.cookies[SESSION_COOKIE];
     if (!token) return;
     const [row] = await app.db
@@ -57,6 +114,25 @@ export const authPlugin = fp(async (app) => {
       sessionId: row.sessionId,
       mfaPending: row.mfaPending,
     };
+  });
+
+  // Audit every authenticated mutating API call
+  app.addHook('onResponse', async (req, reply) => {
+    if (!req.auth || req.method === 'GET' || req.method === 'HEAD') return;
+    if (!req.url.startsWith('/api/')) return;
+    if (reply.statusCode >= 400) return;
+    try {
+      await app.db.insert(auditLog).values({
+        userId: req.auth.userId,
+        apiKeyId: req.auth.apiKey?.id ?? null,
+        action: req.method,
+        resource: req.url.split('?')[0] ?? req.url,
+        detail: {},
+        ip: req.ip,
+      });
+    } catch (err) {
+      req.log.warn({ err }, 'audit log write failed');
+    }
   });
 });
 

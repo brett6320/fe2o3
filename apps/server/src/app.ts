@@ -13,11 +13,13 @@ import type { AppConfig } from './config.js';
 import { DriverRegistry } from './core/models/registry.js';
 import type { Db } from './db/index.js';
 import { EventBus } from './realtime/bus.js';
+import { apiKeyRoutes } from './routes/api-keys.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import { eventRoutes } from './routes/events.js';
 import { healthRoutes } from './routes/health.js';
 import { inventoryRoutes } from './routes/inventory.js';
+import { mfaRoutes } from './routes/mfa.js';
 import { orgRoutes } from './routes/orgs.js';
 import { setupRoutes } from './routes/setup.js';
 import { userRoutes } from './routes/users.js';
@@ -80,6 +82,8 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   await app.register(inventoryRoutes, { prefix: '/api/v1' });
   await app.register(deviceRoutes, { prefix: '/api/v1' });
   await app.register(eventRoutes, { prefix: '/api/v1' });
+  await app.register(mfaRoutes, { prefix: '/api/v1' });
+  await app.register(apiKeyRoutes, { prefix: '/api/v1' });
 
   return app;
 }
