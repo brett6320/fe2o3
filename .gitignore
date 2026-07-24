@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.tsbuildinfo
+.data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+.env
+.env.*
+coverage/
+.claude/wrappers/
