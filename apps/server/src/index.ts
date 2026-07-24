@@ -1,5 +1,6 @@
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
+import { startHookDispatcher } from './core/hooks/dispatcher.js';
 import { Scheduler } from './core/scheduler.js';
 import { createDb } from './db/index.js';
 
@@ -9,6 +10,8 @@ const db = await createDb({
   pgliteDataDir: config.pgliteDir,
 });
 const app = await buildApp({ config, db });
+
+startHookDispatcher(db, app.bus, app.log);
 
 const scheduler = new Scheduler({
   db,

@@ -6,11 +6,12 @@ import { DashboardPage } from './pages/dashboard';
 import { DeviceDetailPage } from './pages/device-detail';
 import { DevicesPage } from './pages/devices';
 import { GroupsPage } from './pages/groups';
+import { HooksPage } from './pages/hooks';
 import { JobsPage } from './pages/jobs';
 import { LoginPage } from './pages/login';
 import { ModelsPage } from './pages/models';
-import { PlaceholderPage } from './pages/placeholder';
 import { ProfilePage } from './pages/profile';
+import { SettingsPage } from './pages/settings';
 import { SetupPage } from './pages/setup';
 import { UsersPage } from './pages/users';
 
@@ -96,12 +97,17 @@ const apiKeysRoute = createRoute({
   component: ApiKeysPage,
 });
 
-const placeholder = <P extends string>(path: P, title: string) =>
-  createRoute({
-    getParentRoute: () => shellRoute,
-    path,
-    component: () => <PlaceholderPage title={title} />,
-  });
+const hooksRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/hooks',
+  component: HooksPage,
+});
+
+const settingsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/settings',
+  component: SettingsPage,
+});
 
 const routeTree = rootRoute.addChildren([
   loginRoute,
@@ -117,8 +123,8 @@ const routeTree = rootRoute.addChildren([
     jobsRoute,
     modelsRoute,
     apiKeysRoute,
-    placeholder('/hooks', 'Hooks'),
-    placeholder('/settings', 'Settings'),
+    hooksRoute,
+    settingsRoute,
   ]),
 ]);
 

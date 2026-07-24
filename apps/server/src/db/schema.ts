@@ -198,6 +198,21 @@ export const auditLog = pgTable(
   (t) => [index('audit_created').on(t.createdAt)],
 );
 
+export const hooks = pgTable('hooks', {
+  id: id(),
+  orgId: text('org_id')
+    .notNull()
+    .references(() => orgs.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  /** Events this hook fires on. */
+  events: jsonb('events').$type<string[]>().notNull().default([]),
+  type: text('type', { enum: ['webhook', 'slack'] }).notNull(),
+  /** webhook: { url, secret? }; slack: { url } (incoming webhook). */
+  config: jsonb('config').$type<Record<string, string>>().notNull().default({}),
+  enabled: boolean('enabled').notNull().default(true),
+  ...timestamps,
+});
+
 export const settings = pgTable('settings', {
   key: text('key').primaryKey(),
   value: jsonb('value').$type<unknown>().notNull(),

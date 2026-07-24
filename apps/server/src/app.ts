@@ -18,9 +18,12 @@ import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
 import { eventRoutes } from './routes/events.js';
 import { healthRoutes } from './routes/health.js';
+import { hookRoutes } from './routes/hooks.js';
+import { importRoutes } from './routes/import.js';
 import { inventoryRoutes } from './routes/inventory.js';
 import { mfaRoutes } from './routes/mfa.js';
 import { orgRoutes } from './routes/orgs.js';
+import { settingRoutes } from './routes/settings.js';
 import { setupRoutes } from './routes/setup.js';
 import { userRoutes } from './routes/users.js';
 
@@ -84,6 +87,27 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   await app.register(eventRoutes, { prefix: '/api/v1' });
   await app.register(mfaRoutes, { prefix: '/api/v1' });
   await app.register(apiKeyRoutes, { prefix: '/api/v1' });
+  await app.register(hookRoutes, { prefix: '/api/v1' });
+  await app.register(importRoutes, { prefix: '/api/v1' });
+  await app.register(settingRoutes, { prefix: '/api/v1' });
+
+  // Serve the built SPA when present (production single-process deployment)
+  const { existsSync } = await import('node:fs');
+  const { dirname, join } = await import('node:path');
+  const { fileURLToPath } = await import('node:url');
+  const webDist = join(dirname(fileURLToPath(import.meta.url)), '../../web/dist');
+  if (existsSync(webDist)) {
+    const fastifyStatic = (await import('@fastify/static')).default;
+    await app.register(fastifyStatic, { root: webDist, wildcard: false });
+    app.setNotFoundHandler((req, reply) => {
+      if (req.url.startsWith('/api/')) {
+        return reply
+          .code(404)
+          .send({ statusCode: 404, error: 'Not Found', message: 'Route not found' });
+      }
+      return reply.sendFile('index.html');
+    });
+  }
 
   return app;
 }
