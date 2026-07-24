@@ -113,9 +113,11 @@ function parseHardware(text: string): { serial: string | undefined; inventory: I
 function junosFacts(config: string): DeviceFacts | null {
   const version = section(config, 'version');
   const model = /^Model:\s*(\S+)/im.exec(version)?.[1];
+  // Prefer the explicit `Junos:` line; otherwise take the bracketed version
+  // from any `JUNOS <component> [x]` line (EX/older releases report it only
+  // there, with no `Junos:` or `JUNOS Software Release` line).
   const osVersion =
-    /^Junos:\s*(\S+)/im.exec(version)?.[1] ??
-    /JUNOS Software Release \[([^\]]+)\]/i.exec(version)?.[1];
+    /^Junos:\s*(\S+)/im.exec(version)?.[1] ?? /JUNOS\b.*?\[([^\]]+)\]/i.exec(version)?.[1];
   const { serial, inventory } = parseHardware(section(config, 'hardware'));
 
   const facts: DeviceFacts = {};
