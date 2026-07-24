@@ -36,7 +36,12 @@ Use the org switcher at the top of the sidebar if you belong to several orgs.
    model, group, and optionally a credential (blank = the group's default).
 4. Open the device page → **Backup now**.
 
-The **Config** tab shows the latest capture with a version dropdown — the
+The **Overview** tab (default) summarizes the generally-static device facts —
+name, host, model, protocol, status — alongside hardware details parsed from the
+latest backup: serial number, hardware model, OS version, and a hardware
+inventory table. Parsing is per-driver and best-effort (Cisco IOS today); models
+without a parser just show the basic fields, and hardware details appear once the
+device has been backed up. The **Config** tab shows the latest capture with a version dropdown — the
 selected version's sha is kept in the URL (`?sha=…`), so a specific version can
 be bookmarked or shared. The **Versions** tab lets you pick two versions and
 see a colorized diff. The **Jobs** tab lists every run; admins/operators can

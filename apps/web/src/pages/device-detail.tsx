@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { Button, Card, ErrorText, Input, Label } from '@/components/ui';
 import { ApiError, api, patch, post } from '@/lib/api';
 import { useOrg } from '@/lib/org-context';
@@ -22,8 +22,24 @@ interface Job {
   commitSha: string | null;
   createdAt: string;
 }
+interface InventoryItem {
+  name: string;
+  description?: string;
+  pid?: string;
+  serial?: string;
+}
+interface FactsResponse {
+  hasConfig: boolean;
+  latestSha: string | null;
+  facts: {
+    serial?: string;
+    model?: string;
+    osVersion?: string;
+    inventory?: InventoryItem[];
+  } | null;
+}
 
-type Tab = 'config' | 'versions' | 'jobs' | 'edit';
+type Tab = 'overview' | 'config' | 'versions' | 'jobs' | 'edit';
 
 function DiffView({ diff }: { diff: string }) {
   if (!diff.trim()) return <p className="p-4 text-sm text-muted-foreground">No differences.</p>;
@@ -48,13 +64,103 @@ function DiffView({ diff }: { diff: string }) {
   );
 }
 
+function Field({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-0.5 text-sm">{value || '—'}</dd>
+    </div>
+  );
+}
+
+function OverviewPanel({ device, facts }: { device: Device; facts: FactsResponse | undefined }) {
+  const f = facts?.facts;
+  const inventory = f?.inventory ?? [];
+  return (
+    <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <Card>
+        <h2 className="mb-3 font-medium">Device</h2>
+        <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+          <Field label="Name" value={device.name} />
+          <Field
+            label="Host"
+            value={
+              <span className="font-mono">
+                {device.host}
+                {device.port ? `:${device.port}` : ''}
+              </span>
+            }
+          />
+          <Field label="Model" value={device.modelId} />
+          <Field label="Protocol" value={device.protocol} />
+          <Field label="Status" value={device.lastStatus} />
+          <Field
+            label="Last backup"
+            value={device.lastBackupAt ? new Date(device.lastBackupAt).toLocaleString() : 'never'}
+          />
+        </dl>
+      </Card>
+      <Card>
+        <h2 className="mb-3 font-medium">Hardware</h2>
+        {f ? (
+          <dl className="grid grid-cols-2 gap-x-4 gap-y-3">
+            <Field label="Serial number" value={f.serial} />
+            <Field label="Hardware model" value={f.model} />
+            <Field label="OS version" value={f.osVersion} />
+          </dl>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            {facts?.hasConfig === false
+              ? 'No backup yet — run one to populate hardware details.'
+              : 'Hardware details are not available for this model.'}
+          </p>
+        )}
+      </Card>
+      {inventory.length > 0 && (
+        <Card className="p-0 lg:col-span-2">
+          <h2 className="border-b border-border px-4 py-3 font-medium">Hardware inventory</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-muted/50 text-left text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 font-medium">Name</th>
+                  <th className="px-4 py-2 font-medium">Description</th>
+                  <th className="px-4 py-2 font-medium">PID</th>
+                  <th className="px-4 py-2 font-medium">Serial</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {inventory.map((it, i) => (
+                  <tr
+                    // biome-ignore lint/suspicious/noArrayIndexKey: static inventory rows
+                    key={i}
+                  >
+                    <td className="px-4 py-2">{it.name || '—'}</td>
+                    <td className="px-4 py-2 text-muted-foreground">{it.description ?? '—'}</td>
+                    <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">
+                      {it.pid ?? '—'}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2 font-mono text-xs">
+                      {it.serial ?? '—'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      )}
+    </div>
+  );
+}
+
 export function DeviceDetailPage() {
   const { deviceId } = useParams({ strict: false }) as { deviceId: string };
   const { orgId, role } = useOrg();
   const qc = useQueryClient();
   const search = useSearch({ strict: false }) as { sha?: string };
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>('config');
+  const [tab, setTab] = useState<Tab>('overview');
   const [selectedSha, setSelectedShaState] = useState<string | null>(search.sha ?? null);
   // keep the sha in the URL so specific versions are linkable
   const setSelectedSha = (sha: string | null) => {
@@ -107,6 +213,11 @@ export function DeviceDetailPage() {
     enabled: !!orgId,
     refetchInterval: 10_000,
   });
+  const facts = useQuery({
+    queryKey: ['facts', orgId, deviceId],
+    queryFn: () => api<FactsResponse>(`${base}/facts`),
+    enabled: !!orgId,
+  });
   const jobDetail = useQuery({
     queryKey: ['job', orgId, openJob],
     queryFn: () => api<Job & { log: string | null }>(`/orgs/${orgId}/jobs/${openJob}`),
@@ -119,6 +230,7 @@ export function DeviceDetailPage() {
       qc.invalidateQueries({ queryKey: ['device', orgId, deviceId] });
       qc.invalidateQueries({ queryKey: ['versions', orgId, deviceId] });
       qc.invalidateQueries({ queryKey: ['jobs', orgId, deviceId] });
+      qc.invalidateQueries({ queryKey: ['facts', orgId, deviceId] });
     },
   });
 
@@ -154,7 +266,7 @@ export function DeviceDetailPage() {
       <div className="mt-6 flex gap-1 overflow-x-auto border-b border-border">
         {(
           [
-            ...(['config', 'versions', 'jobs'] as const),
+            ...(['overview', 'config', 'versions', 'jobs'] as const),
             ...(role === 'admin' ? (['edit'] as const) : []),
           ] as Tab[]
         ).map((t) => (
@@ -173,6 +285,8 @@ export function DeviceDetailPage() {
           </button>
         ))}
       </div>
+
+      {tab === 'overview' && <OverviewPanel device={d} facts={facts.data} />}
 
       {tab === 'config' && (
         <Card className="mt-4 p-0">

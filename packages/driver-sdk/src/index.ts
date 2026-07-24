@@ -49,6 +49,28 @@ export interface DriverVar {
   default?: string | number | boolean;
 }
 
+/** One hardware component in a device's inventory (chassis, module, transceiver…). */
+export interface InventoryItem {
+  name: string;
+  description?: string | undefined;
+  /** Product id / part number. */
+  pid?: string | undefined;
+  serial?: string | undefined;
+  /** Sub-components, when the vendor exposes a tree (slots → modules → optics). */
+  children?: InventoryItem[] | undefined;
+}
+
+/** Generally-static facts parsed from a device's collected output. */
+export interface DeviceFacts {
+  /** Chassis / system serial number. */
+  serial?: string | undefined;
+  /** Hardware model / part number. */
+  model?: string | undefined;
+  /** OS/firmware version string. */
+  osVersion?: string | undefined;
+  inventory?: InventoryItem[] | undefined;
+}
+
 export interface DriverSpec {
   /** Stable identifier, e.g. `ios`. Used as `devices.model_id`. */
   id: string;
@@ -78,6 +100,11 @@ export interface DriverSpec {
   commandComplete?: RegExp;
   /** Per-device variables this driver honors (shown in the UI device form). */
   vars?: DriverVar[];
+  /**
+   * Optional: parse generally-static facts (serial, model, hardware inventory)
+   * from a stored config. Returns null when nothing recognizable is found.
+   */
+  facts?: (configText: string) => DeviceFacts | null;
 }
 
 /** Helper preserving inference; drivers `export default defineDriver({...})`. */
