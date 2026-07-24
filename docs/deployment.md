@@ -136,6 +136,20 @@ server {
 Set `FE2O3_BASE_URL=https://fe2o3.example.com` so WebAuthn binds to the right
 origin.
 
+### Traefik
+
+A ready-made compose template is provided at
+[`docker-compose.traefik.yml`](../docker-compose.traefik.yml). It assumes an
+external `traefik` network, a `letsencrypt-prd` cert resolver, and a global
+HTTP→HTTPS redirect on the `web` entrypoint (so only the `websecure` router is
+declared). The template includes a buffering middleware so SSE events flush
+through Traefik immediately. Edit the hostname, network name, and postgres
+password, then:
+
+```bash
+docker compose -f docker-compose.traefik.yml up -d
+```
+
 ## Backing up fe2o3 itself
 
 Three things matter:

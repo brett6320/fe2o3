@@ -1,0 +1,62 @@
+# fe2o3 behind Traefik — template.
+# Assumes:
+#   - an external Traefik network named "traefik" (adjust to yours)
+#   - cert resolver "letsencrypt-prd"
+#   - the "web" (HTTP) entrypoint already redirects to "websecure" globally,
+#     so only the websecure router is declared here
+# Replace fe2o3.example.com and the postgres password before use.
+
+services:
+  fe2o3:
+    build: .
+    # image: ghcr.io/you/fe2o3:latest   # once published
+    restart: unless-stopped
+    environment:
+      FE2O3_BASE_URL: https://fe2o3.example.com   # required for passkeys (WebAuthn RP ID)
+      FE2O3_DATABASE_URL: postgres://fe2o3:change-me@db:5432/fe2o3
+      # FE2O3_SECRET_KEY: <64 hex chars>          # else auto-generated into /data/secret.key
+    volumes:
+      - fe2o3-data:/data                          # git repos + secret key
+    networks:
+      - traefik
+      - internal
+    depends_on:
+      db:
+        condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik
+      - traefik.http.routers.fe2o3.rule=Host(`fe2o3.example.com`)
+      - traefik.http.routers.fe2o3.entrypoints=websecure
+      - traefik.http.routers.fe2o3.tls=true
+      - traefik.http.routers.fe2o3.tls.certresolver=letsencrypt-prd
+      - traefik.http.services.fe2o3.loadbalancer.server.port=8442
+      # SSE (live dashboard): disable response buffering so events flush immediately
+      - traefik.http.middlewares.fe2o3-flush.buffering.maxResponseBodyBytes=0
+      - traefik.http.routers.fe2o3.middlewares=fe2o3-flush
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: fe2o3
+      POSTGRES_PASSWORD: change-me
+      POSTGRES_DB: fe2o3
+    volumes:
+      - pg-data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fe2o3 -d fe2o3"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  fe2o3-data:
+  pg-data:
+
+networks:
+  traefik:
+    external: true
+  internal:
