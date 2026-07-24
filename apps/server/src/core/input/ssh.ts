@@ -111,7 +111,11 @@ export async function connectSsh(opts: ConnectOptions): Promise<Transport> {
 
   return {
     async expect(pattern: RegExp, expectTimeoutMs = timeoutMs) {
-      const deadline = Date.now() + expectTimeoutMs;
+      // Idle timeout: the clock resets whenever new data arrives, so a large
+      // config that streams for longer than expectTimeoutMs still succeeds as
+      // long as it keeps flowing. We only give up if the device goes silent.
+      let seen = buffer.length;
+      let deadline = Date.now() + expectTimeoutMs;
       // eslint-disable-next-line no-constant-condition
       while (true) {
         if (pattern.test(buffer)) {
@@ -120,6 +124,10 @@ export async function connectSsh(opts: ConnectOptions): Promise<Transport> {
           return out;
         }
         if (closed) throw new Error(`connection closed while waiting for ${pattern}`);
+        if (buffer.length !== seen) {
+          seen = buffer.length;
+          deadline = Date.now() + expectTimeoutMs;
+        }
         const remaining = deadline - Date.now();
         if (remaining <= 0) throw new ExpectTimeoutError(pattern, buffer);
         await new Promise<void>((resolve) => {
