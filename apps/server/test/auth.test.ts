@@ -157,6 +157,51 @@ describe('setup + auth + rbac', () => {
     expect(denied.statusCode).toBe(403);
   });
 
+  it('a single user can belong to multiple orgs with different roles', async () => {
+    // second org + a shared user
+    const org2 = await app.inject({
+      method: 'POST',
+      url: '/api/v1/orgs',
+      cookies: adminCookie,
+      payload: { name: 'Globex', slug: 'globex' },
+    });
+    const org2Id = org2.json().id;
+
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'viewer@example.com', password: 'viewer-pass-123' },
+    });
+    const viewerId = login.json().id;
+
+    // already readonly in acme (from an earlier test); make operator in globex
+    await app.inject({
+      method: 'PUT',
+      url: `/api/v1/orgs/${org2Id}/members`,
+      cookies: adminCookie,
+      payload: { userId: viewerId, role: 'operator' },
+    });
+
+    const session = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/session',
+      cookies: cookieOf(login),
+    });
+    const orgs = session.json().orgs as { id: string; slug: string; role: string }[];
+    expect(orgs).toHaveLength(2);
+    expect(orgs.find((o) => o.slug === 'acme')?.role).toBe('readonly');
+    expect(orgs.find((o) => o.slug === 'globex')?.role).toBe('operator');
+
+    // role is per-org: readonly in acme can't write there but operator in globex can
+    const denied = await app.inject({
+      method: 'POST',
+      url: `/api/v1/orgs/${orgId}/credentials`,
+      cookies: cookieOf(login),
+      payload: { name: 'x', username: 'x' },
+    });
+    expect(denied.statusCode).toBe(403); // needs admin in acme
+  });
+
   it('disabling a user kills their sessions', async () => {
     const login = await app.inject({
       method: 'POST',
