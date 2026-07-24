@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button, Card, ErrorText, Input, Label, Textarea } from '@/components/ui';
 import { api, del, post } from '@/lib/api';
-import { useOrg } from '@/lib/org';
+import { useOrg } from '@/lib/org-context';
 
 interface Credential {
   id: string;

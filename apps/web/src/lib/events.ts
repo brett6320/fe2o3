@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { useOrg } from './org';
+import { useOrg } from './org-context';
 
 export interface BackupEvent {
   type: 'job.started' | 'job.finished' | 'device.updated';
