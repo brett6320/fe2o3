@@ -4,7 +4,9 @@ import type { AppConfig } from '../config.js';
 import type { Db } from '../db/index.js';
 import { devices, groups, jobs } from '../db/schema.js';
 import type { EventBus } from '../realtime/bus.js';
-import { backupDevice } from './backup.js';
+import { collectDevice } from './backup.js';
+import { InlineCollector } from './collector/inline.js';
+import type { TaskRunner } from './collector/types.js';
 import type { DriverRegistry } from './models/registry.js';
 
 const TICK_MS = 5_000;
@@ -14,6 +16,8 @@ export class Scheduler {
   private queue: PQueue;
   private timer: NodeJS.Timeout | null = null;
   private inFlight = new Set<string>();
+  /** Runs a prepared collection task — the worker pool when present, else inline. */
+  private run: TaskRunner;
 
   constructor(
     private ctx: {
@@ -21,11 +25,17 @@ export class Scheduler {
       config: AppConfig;
       registry: DriverRegistry;
       bus: EventBus;
+      /** Collector pool; when omitted, collection runs inline on the main thread. */
+      pool?: { submit: TaskRunner };
       log?: { warn?: (o: unknown, m: string) => void };
     },
-    concurrency = 20,
+    // Concurrency of *prepared* tasks in flight; defaults to the pool size so
+    // DB job rows and worker capacity stay in step.
+    concurrency = ctx.config.collectorPoolSize,
   ) {
-    this.queue = new PQueue({ concurrency });
+    this.queue = new PQueue({ concurrency: Math.max(1, Number(concurrency) || 4) });
+    const inline = new InlineCollector(ctx.registry);
+    this.run = ctx.pool ? ctx.pool.submit : (task) => inline.run(task);
   }
 
   async start() {
@@ -114,7 +124,7 @@ export class Scheduler {
     if (!dev) return;
 
     bus.publish({ type: 'job.started', orgId: dev.orgId, deviceId, deviceName: dev.name });
-    const outcome = await backupDevice(this.ctx, deviceId, 'scheduled');
+    const outcome = await collectDevice(this.ctx, this.run, deviceId, 'scheduled');
 
     const intervalMs = intervalSec * 1000;
     const delay =
