@@ -231,11 +231,27 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
           .code(404)
           .send({ statusCode: 404, error: 'Not Found', message: 'Device not found' } as never);
       }
-      return backupDevice(
+      app.bus.publish({
+        type: 'job.started',
+        orgId: req.params.orgId,
+        deviceId: row.device.id,
+        deviceName: row.device.name,
+      });
+      const outcome = await backupDevice(
         { db: app.db, config: app.config, registry: app.registry },
         row.device.id,
         'manual',
       );
+      app.bus.publish({
+        type: 'job.finished',
+        orgId: req.params.orgId,
+        deviceId: row.device.id,
+        deviceName: row.device.name,
+        jobId: outcome.jobId,
+        status: outcome.status,
+        commitSha: outcome.commitSha,
+      });
+      return outcome;
     },
   );
 

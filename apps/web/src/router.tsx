@@ -5,6 +5,7 @@ import { DashboardPage } from './pages/dashboard';
 import { DeviceDetailPage } from './pages/device-detail';
 import { DevicesPage } from './pages/devices';
 import { GroupsPage } from './pages/groups';
+import { JobsPage } from './pages/jobs';
 import { LoginPage } from './pages/login';
 import { PlaceholderPage } from './pages/placeholder';
 import { ProfilePage } from './pages/profile';
@@ -75,6 +76,12 @@ const credentialsRoute = createRoute({
   component: CredentialsPage,
 });
 
+const jobsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/jobs',
+  component: JobsPage,
+});
+
 const placeholder = <P extends string>(path: P, title: string) =>
   createRoute({
     getParentRoute: () => shellRoute,
@@ -93,7 +100,7 @@ const routeTree = rootRoute.addChildren([
     deviceDetailRoute,
     groupsRoute,
     credentialsRoute,
-    placeholder('/jobs', 'Jobs'),
+    jobsRoute,
     placeholder('/hooks', 'Hooks'),
     placeholder('/settings', 'Settings'),
   ]),

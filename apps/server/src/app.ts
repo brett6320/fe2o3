@@ -12,8 +12,10 @@ import { authPlugin } from './auth/plugin.js';
 import type { AppConfig } from './config.js';
 import { DriverRegistry } from './core/models/registry.js';
 import type { Db } from './db/index.js';
+import { EventBus } from './realtime/bus.js';
 import { authRoutes } from './routes/auth.js';
 import { deviceRoutes } from './routes/devices.js';
+import { eventRoutes } from './routes/events.js';
 import { healthRoutes } from './routes/health.js';
 import { inventoryRoutes } from './routes/inventory.js';
 import { orgRoutes } from './routes/orgs.js';
@@ -25,6 +27,7 @@ declare module 'fastify' {
     db: Db;
     config: AppConfig;
     registry: DriverRegistry;
+    bus: EventBus;
   }
 }
 
@@ -49,6 +52,7 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   const registry = new DriverRegistry();
   await registry.loadPlugins(config.driversDir);
   app.decorate('registry', registry);
+  app.decorate('bus', new EventBus());
 
   await app.register(fastifyCookie);
 
@@ -75,6 +79,7 @@ export async function buildApp({ config, db }: BuildAppOptions) {
   await app.register(orgRoutes, { prefix: '/api/v1' });
   await app.register(inventoryRoutes, { prefix: '/api/v1' });
   await app.register(deviceRoutes, { prefix: '/api/v1' });
+  await app.register(eventRoutes, { prefix: '/api/v1' });
 
   return app;
 }
