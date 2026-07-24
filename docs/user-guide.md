@@ -110,7 +110,18 @@ action, resource, IP, timestamp.
 - **Base URL**, **Git author**, **Concurrency** — stored for upcoming use.
   > **Note:** these values are not applied yet. Today the passkey origin comes
   > from the `FE2O3_BASE_URL` environment variable, backup commits are authored
-  > as `fe2o3 <fe2o3@localhost>`, and scheduler concurrency is fixed at 20.
+  > as `fe2o3 <fe2o3@localhost>`, and collection concurrency is set by
+  > `FE2O3_COLLECTOR_POOL_SIZE` (the number of collector worker threads).
+
+## Collector pool
+
+Device backups run on a pool of **collector worker threads** — the long-running
+SSH/telnet sessions execute off the main event loop, so a slow or misbehaving
+device can't stall the API or the scheduler. The scheduler decides what is due
+and enqueues work; idle collectors pick it up. Git commits and database writes
+stay on the main thread. Size the pool with `FE2O3_COLLECTOR_POOL_SIZE`
+(minimum 1); if a worker crashes mid-backup the task is retried inline and the
+worker is replaced.
 
 ## The git repositories
 

@@ -3,7 +3,7 @@ import { and, desc, eq } from 'drizzle-orm';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
 import { requireOrgRole } from '../auth/plugin.js';
-import { backupDevice } from '../core/backup.js';
+import { backupDevice, collectDevice } from '../core/backup.js';
 import { publicDeviceVars, sealDeviceVars } from '../core/device-vars.js';
 import { getOrgRepo } from '../core/git/repo.js';
 import { devices, groups, jobs, orgs } from '../db/schema.js';
@@ -246,11 +246,13 @@ export const deviceRoutes: FastifyPluginAsyncZod = async (app) => {
         deviceId: row.device.id,
         deviceName: row.device.name,
       });
-      const outcome = await backupDevice(
-        { db: app.db, config: app.config, registry: app.registry, log: app.log },
-        row.device.id,
-        'manual',
-      );
+      // Route manual backups through the collector pool when available so they
+      // run on a worker thread like scheduled ones; fall back to inline.
+      const ctx = { db: app.db, config: app.config, registry: app.registry, log: app.log };
+      const pool = app.collectorPool;
+      const outcome = pool
+        ? await collectDevice(ctx, pool.submit, row.device.id, 'manual')
+        : await backupDevice(ctx, row.device.id, 'manual');
       app.bus.publish({
         type: 'job.finished',
         orgId: req.params.orgId,

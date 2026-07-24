@@ -10,6 +10,7 @@ import {
 } from 'fastify-type-provider-zod';
 import { authPlugin } from './auth/plugin.js';
 import type { AppConfig } from './config.js';
+import type { CollectorPool } from './core/collector/pool.js';
 import { DriverRegistry } from './core/models/registry.js';
 import type { Db } from './db/index.js';
 import { EventBus } from './realtime/bus.js';
@@ -37,15 +38,20 @@ declare module 'fastify' {
     config: AppConfig;
     registry: DriverRegistry;
     bus: EventBus;
+    /** Worker collector pool; absent in tests, where collection runs inline. */
+    collectorPool?: CollectorPool;
   }
 }
 
 export interface BuildAppOptions {
   config: AppConfig;
   db: Db;
+  pool?: CollectorPool;
+  /** Shared driver registry (already plugin-loaded); one is built when omitted. */
+  registry?: DriverRegistry;
 }
 
-export async function buildApp({ config, db }: BuildAppOptions) {
+export async function buildApp({ config, db, pool, registry: providedRegistry }: BuildAppOptions) {
   const app = Fastify({
     logger: {
       level: config.logLevel,
@@ -58,10 +64,11 @@ export async function buildApp({ config, db }: BuildAppOptions) {
 
   app.decorate('db', db);
   app.decorate('config', config);
-  const registry = new DriverRegistry();
-  await registry.loadPlugins(config.driversDir);
+  const registry = providedRegistry ?? new DriverRegistry();
+  if (!providedRegistry) await registry.loadPlugins(config.driversDir);
   app.decorate('registry', registry);
   app.decorate('bus', new EventBus());
+  app.decorate('collectorPool', pool);
 
   await app.register(fastifyCookie);
 

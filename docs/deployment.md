@@ -24,6 +24,7 @@ Everything else is configured in the web UI; these bootstrap the process.
 | `FE2O3_SECRET_KEY` | auto-generated | Optional initial key, 64 hex chars (32 bytes). If unset, a keyring is generated at `<dataDir>/keys.json` on first boot |
 | `FE2O3_BASE_URL` | `http://localhost:8442` | Public URL — **required for passkeys** (WebAuthn RP ID). This env var is authoritative; the Settings page value is not applied yet |
 | `FE2O3_LOG_LEVEL` | `info` | pino log level |
+| `FE2O3_COLLECTOR_POOL_SIZE` | `min(4, CPUs−1)` | Number of collector worker threads that run device backup sessions (minimum 1). Raise for more concurrent collections; each worker adds memory |
 
 > **Back up** `<dataDir>/keys.json` (or `FE2O3_SECRET_KEY` if you pinned it).
 > Without the keyring, stored device credentials and TOTP secrets cannot be
