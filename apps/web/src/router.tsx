@@ -11,6 +11,7 @@ import { HooksPage } from './pages/hooks';
 import { JobsPage } from './pages/jobs';
 import { LoginPage } from './pages/login';
 import { ModelsPage } from './pages/models';
+import { OrgsPage } from './pages/orgs';
 import { ProfilePage } from './pages/profile';
 import { SettingsPage } from './pages/settings';
 import { SetupPage } from './pages/setup';
@@ -100,6 +101,12 @@ const auditRoute = createRoute({
   component: AuditPage,
 });
 
+const orgsRoute = createRoute({
+  getParentRoute: () => shellRoute,
+  path: '/orgs',
+  component: OrgsPage,
+});
+
 const apiKeysRoute = createRoute({
   getParentRoute: () => shellRoute,
   path: '/api-keys',
@@ -133,6 +140,7 @@ const routeTree = rootRoute.addChildren([
     modelsRoute,
     apiKeysRoute,
     auditRoute,
+    orgsRoute,
     hooksRoute,
     settingsRoute,
   ]),
