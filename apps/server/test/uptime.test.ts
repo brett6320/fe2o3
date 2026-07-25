@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import cradlepoint from '../src/core/models/cradlepoint.js';
+import digiTransport from '../src/core/models/digi-transport.js';
 import edgeos from '../src/core/models/edgeos.js';
 import eos from '../src/core/models/eos.js';
 import ios from '../src/core/models/ios.js';
@@ -84,6 +85,11 @@ describe('per-driver uptime', () => {
   it('cradlepoint reads status seconds', () => {
     expect(cradlepoint.uptime?.cmd).toBe('get status/system/uptime');
     expect(cradlepoint.uptime?.parse('123456')).toBe(123456);
+  });
+  it('digi transport (sarian) runs uptime', () => {
+    expect(digiTransport.uptime?.cmd).toBe('uptime');
+    // "Uptime 96 Hrs 0 Mins 12 Seconds"
+    expect(digiTransport.uptime?.parse('Uptime 96 Hrs 0 Mins 12 Seconds')).toBe(96 * H + 12);
   });
   it('linux reads /proc/uptime', () => {
     expect(linux.uptime?.cmd).toBe('cat /proc/uptime');
