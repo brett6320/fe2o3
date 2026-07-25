@@ -17,24 +17,28 @@ const rootEl = document.getElementById('root');
 if (!rootEl) throw new Error('missing #root');
 
 /**
- * Resolve once the required style assets are ready, so the app never renders
- * unstyled (the inline #app-loading spinner shows until then). Waits for every
- * stylesheet <link> to load plus web fonts, bounded by a safety timeout so a
- * stuck asset can't hide the app forever.
+ * Resolve once the app stylesheet is genuinely *applied* (not merely when a
+ * <link> fires load), so the app never renders unstyled — the inline
+ * #app-loading spinner shows until then.
+ *
+ * We poll for a CSS custom property that only index.css defines (`--background`)
+ * to resolve on :root. This is race-free and works whether the CSS is a
+ * render-blocking <link> or JS-injected (dev), unlike a link load/`.sheet`
+ * check which can win the race or miss an injected stylesheet. Bounded by a
+ * safety timeout so a missing/404'd stylesheet can't hide the app forever.
  */
 function whenStylesReady(): Promise<unknown> {
-  const links = Array.from(
-    document.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]'),
-  ).map((link) =>
-    link.sheet
-      ? Promise.resolve()
-      : new Promise<void>((resolve) => {
-          link.addEventListener('load', () => resolve(), { once: true });
-          link.addEventListener('error', () => resolve(), { once: true });
-        }),
-  );
+  const cssApplied = () =>
+    getComputedStyle(document.documentElement).getPropertyValue('--background').trim() !== '';
+  const cssReady = new Promise<void>((resolve) => {
+    const tick = () => {
+      if (cssApplied()) resolve();
+      else requestAnimationFrame(tick);
+    };
+    tick();
+  });
   const fonts = document.fonts?.ready ?? Promise.resolve();
-  const ready = Promise.all([fonts, ...links]);
+  const ready = Promise.all([cssReady, fonts]);
   const safety = new Promise((resolve) => setTimeout(resolve, 5000));
   return Promise.race([ready, safety]);
 }
