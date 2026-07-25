@@ -220,6 +220,10 @@ export async function finalizeCollect(
         lastBackupAt: new Date(),
         lastError: null,
         consecutiveFailures: 0,
+        // Uptime is a stat, recorded independently of whether the config changed.
+        ...(result.uptimeSeconds != null
+          ? { uptimeSeconds: result.uptimeSeconds, uptimeCapturedAt: new Date() }
+          : {}),
       })
       .where(eq(devices.id, device.id));
 

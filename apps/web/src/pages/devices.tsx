@@ -20,6 +20,8 @@ export interface Device {
   lastStatus: 'never' | 'running' | 'success' | 'failed';
   lastBackupAt: string | null;
   lastError: string | null;
+  uptimeSeconds: number | null;
+  uptimeCapturedAt: string | null;
 }
 
 interface Group {

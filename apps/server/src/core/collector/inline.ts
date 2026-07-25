@@ -14,13 +14,13 @@ export class InlineCollector implements Collector {
     const driver = this.registry.get(task.driverId);
     if (!driver) return { ok: false, error: `unknown driver model: ${task.driverId}` };
     try {
-      const { configText, transcript } = await runBackup({
+      const { configText, transcript, uptimeSeconds } = await runBackup({
         driver,
         protocol: task.protocol,
         connect: task.connect,
         enablePassword: task.enablePassword,
       });
-      return { ok: true, configText, transcript };
+      return { ok: true, configText, transcript, uptimeSeconds };
     } catch (err) {
       return { ok: false, error: err instanceof Error ? err.message : String(err) };
     }

@@ -5,6 +5,7 @@ import {
   hideSecret,
   type InventoryItem,
 } from '@fe2o3/driver-sdk';
+import { parseVerboseDuration } from './uptime.js';
 
 /** Extract a named `! --- <name> ---` section body from an assembled config. */
 function section(config: string, name: string): string {
@@ -82,6 +83,9 @@ export default defineDriver({
     dropLines(/^Current configuration : \d+ bytes/),
     dropLines(/^Load for five secs/),
     dropLines(/^Time source is /),
+    // `show version` uptime advances every poll; drop it so it doesn't look
+    // like a config change ("<host> uptime is …", "Uptime for … is …").
+    dropLines(/\buptime (?:is|for) /i),
     // secrets
     hideSecret(/^enable (?:secret|password)(?: level \d+)? (?:\d )?(\S+)/gm),
     hideSecret(/^username (\S+) privilege (\d+) (?:secret|password) (?:\d )?(\S+)/gm),
@@ -103,4 +107,11 @@ export default defineDriver({
     },
   ],
   facts: iosFacts,
+  uptime: {
+    // parsed from the already-collected `show version` ("<host> uptime is …")
+    parse: (text) => {
+      const m = /uptime is (.+)/i.exec(text);
+      return m?.[1] ? parseVerboseDuration(m[1]) : null;
+    },
+  },
 });

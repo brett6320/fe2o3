@@ -43,6 +43,24 @@ describe('driver scrubbers', () => {
     expect(out).not.toContain('Command: show running-config');
   });
 
+  it('ios drops the volatile show-version uptime line', () => {
+    const out = scrub(
+      ios,
+      [
+        'cisco WS-C3560-48PS (PowerPC405) processor',
+        'core-sw1 uptime is 20 weeks, 4 days, 1 hour, 43 minutes',
+        'Uptime for this control processor is 20 weeks, 4 days',
+        'System returned to ROM by power-on',
+        'hostname core-sw1',
+      ].join('\n'),
+    );
+    expect(out).not.toContain('uptime is');
+    expect(out).not.toContain('Uptime for');
+    // stable lines survive
+    expect(out).toContain('System returned to ROM by power-on');
+    expect(out).toContain('hostname core-sw1');
+  });
+
   it('routeros normalizes the volatile export header (keeps version, drops timestamp)', () => {
     const out = scrub(
       routeros,

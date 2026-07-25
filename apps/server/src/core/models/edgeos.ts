@@ -1,4 +1,5 @@
 import { defineDriver, dropLines, hideSecret } from '@fe2o3/driver-sdk';
+import { parseBsdUptime } from './uptime.js';
 
 /** Ubiquiti EdgeOS (EdgeRouter). Ported from oxidized's edgeos.rb model. */
 export default defineDriver({
@@ -20,4 +21,11 @@ export default defineDriver({
     dropLines(/^Booted: /),
     dropLines(/^Uptime: /),
   ],
+  uptime: {
+    // from the pre-scrub `show version` "Uptime: … up …" line
+    parse: (text) => {
+      const m = /^Uptime:\s*(.+)/im.exec(text);
+      return m?.[1] ? parseBsdUptime(m[1]) : null;
+    },
+  },
 });

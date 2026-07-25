@@ -128,6 +128,9 @@ export const devices = pgTable(
     lastError: text('last_error'),
     nextRunAt: timestamp('next_run_at', { withTimezone: true, mode: 'date' }),
     consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+    /** Latest uptime stat (seconds) and when it was captured — not a config. */
+    uptimeSeconds: integer('uptime_seconds'),
+    uptimeCapturedAt: timestamp('uptime_captured_at', { withTimezone: true, mode: 'date' }),
     ...timestamps,
   },
   (t) => [

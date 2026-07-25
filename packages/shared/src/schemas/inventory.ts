@@ -59,6 +59,8 @@ export const deviceSchema = z.object({
   lastError: z.string().nullable(),
   nextRunAt: z.coerce.date().nullable(),
   consecutiveFailures: z.number().int(),
+  uptimeSeconds: z.number().int().nullable(),
+  uptimeCapturedAt: z.coerce.date().nullable(),
 });
 
 export const deviceNameSchema = z

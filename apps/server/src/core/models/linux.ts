@@ -1,4 +1,5 @@
 import { defineDriver, dropLines } from '@fe2o3/driver-sdk';
+import { parseSeconds } from './uptime.js';
 
 /** Generic Linux / VyOS-style device: grabs system info + network config. */
 export default defineDriver({
@@ -14,4 +15,5 @@ export default defineDriver({
     { cmd: 'ip route 2>/dev/null || netstat -rn', name: 'routes' },
   ],
   scrubbers: [dropLines(/^(uname -a|cat \/etc\/os-release.*|ip -o addr.*|ip route.*)$/)],
+  uptime: { cmd: 'cat /proc/uptime', parse: parseSeconds },
 });
