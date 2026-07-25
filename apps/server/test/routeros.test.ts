@@ -35,8 +35,9 @@ describe('routeros driver', () => {
       });
       expect(result.configText).toContain('add name=br0');
       expect(result.configText).toContain('10.0.0.1/24');
-      // volatile header lines are scrubbed
-      expect(result.configText).not.toContain('by RouterOS');
+      // volatile header is normalized: per-run timestamp dropped, version kept
+      expect(result.configText).not.toContain('jul/24/2026');
+      expect(result.configText).toContain('by RouterOS 7.15');
       expect(result.configText).not.toContain('software id');
     } finally {
       await fake.close();
