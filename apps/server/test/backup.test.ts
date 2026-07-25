@@ -1,8 +1,10 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { eq } from 'drizzle-orm';
 import { execa } from 'execa';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { devices } from '../src/db/schema.js';
 import { startFakeDevice } from './fixtures/fake-ssh-server.js';
 import { buildTestApp } from './helpers.js';
 
@@ -193,6 +195,25 @@ describe('backup engine e2e', () => {
     // 3 weeks, 2 days, 4 hours, 5 minutes
     expect(d.uptimeSeconds).toBe(3 * 604800 + 2 * 86400 + 4 * 3600 + 5 * 60);
     expect(d.uptimeCapturedAt).toBeTruthy();
+  });
+
+  it('a manual backup reschedules the next auto run', async () => {
+    // pretend the device is overdue for its scheduled backup
+    await app.db
+      .update(devices)
+      .set({ nextRunAt: new Date(Date.now() - 60_000) })
+      .where(eq(devices.id, deviceId));
+
+    const res = await app.inject({
+      method: 'POST',
+      url: `/api/v1/orgs/${orgId}/devices/${deviceId}/backup`,
+      cookies: cookie,
+    });
+    expect(res.json().status).toBe('success');
+
+    // the manual run reset next_run_at to ~now + interval (group default 3600s)
+    const [d] = await app.db.select().from(devices).where(eq(devices.id, deviceId));
+    expect(d?.nextRunAt?.getTime() ?? 0).toBeGreaterThan(Date.now() + 3000 * 1000);
   });
 
   it('renaming a group path slug moves device files with history', async () => {

@@ -9,6 +9,9 @@ import { deviceVarSecret } from './device-vars.js';
 import { getOrgRepo } from './git/repo.js';
 import type { DriverRegistry } from './models/registry.js';
 
+/** Cap on the exponential backoff between failed backups. */
+const MAX_BACKOFF_MS = 6 * 60 * 60 * 1000;
+
 export interface BackupOutcome {
   jobId: string;
   status: 'success' | 'failed';
@@ -162,6 +165,9 @@ export async function finalizeCollect(
   const { db, config } = ctx;
   const { device, group, org, jobId } = fin;
 
+  // Every backup — manual or scheduled — resets the next-run timer.
+  const intervalMs = (device.intervalSec ?? group.defaultIntervalSec) * 1000;
+
   const markFailed = async (raw: string): Promise<BackupOutcome> => {
     const message = raw.replaceAll('\u0000', '');
     await db
@@ -174,6 +180,10 @@ export async function finalizeCollect(
         lastStatus: 'failed',
         lastError: message,
         consecutiveFailures: device.consecutiveFailures + 1,
+        // exponential backoff on the (pre-increment) failure count, capped
+        nextRunAt: new Date(
+          Date.now() + Math.min(intervalMs * 2 ** (device.consecutiveFailures + 1), MAX_BACKOFF_MS),
+        ),
       })
       .where(eq(devices.id, device.id));
     return { jobId, status: 'failed', commitSha: null, error: message };
@@ -220,6 +230,7 @@ export async function finalizeCollect(
         lastBackupAt: new Date(),
         lastError: null,
         consecutiveFailures: 0,
+        nextRunAt: new Date(Date.now() + intervalMs),
         // Uptime is a stat, recorded independently of whether the config changed.
         ...(result.uptimeSeconds != null
           ? { uptimeSeconds: result.uptimeSeconds, uptimeCapturedAt: new Date() }
