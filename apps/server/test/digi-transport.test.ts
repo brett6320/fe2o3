@@ -39,6 +39,7 @@ describe('digi transport driver', () => {
         ati: 'Digi TransPort WR21\nOK',
         'config c show': RUNNING,
         'config 0 show': SAVED,
+        uptime: 'Uptime 96 Hrs 0 Mins 12 Seconds\nOK',
       },
     });
     try {
@@ -64,6 +65,9 @@ describe('digi transport driver', () => {
       expect(result.configText).not.toMatch(/^OK$/m);
       // non-secret config is preserved
       expect(result.configText).toContain('user 1 name "oxidized"');
+      // uptime captured as a stat (from the `uptime` command), not in config
+      expect(result.uptimeSeconds).toBe(96 * 3600 + 12);
+      expect(result.configText).not.toContain('Uptime 96 Hrs');
     } finally {
       await fake.close();
     }
@@ -78,6 +82,7 @@ describe('digi transport driver', () => {
         ati: 'Digi TransPort WR21\nOK',
         'config c show': RUNNING,
         'config 0 show': SAVED,
+        uptime: 'Uptime 96 Hrs 0 Mins 12 Seconds\nOK',
       },
     });
     try {

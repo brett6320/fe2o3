@@ -1,4 +1,5 @@
 import { defineDriver, dropLines, hideSecret } from '@fe2o3/driver-sdk';
+import { parseVerboseDuration } from './uptime.js';
 
 /**
  * Digi TransPort (Sarian OS) cellular routers — WR/DR/SR series with the
@@ -37,4 +38,6 @@ export default defineDriver({
     // drop the trailing `OK` command terminator so it isn't stored as config
     dropLines(/^OK\s*$/),
   ],
+  // `uptime` → "Uptime 96 Hrs 0 Mins 12 Seconds\nOK" (stat command, not committed)
+  uptime: { cmd: 'uptime', parse: parseVerboseDuration },
 });
