@@ -43,7 +43,7 @@ describe('driver scrubbers', () => {
     expect(out).not.toContain('Command: show running-config');
   });
 
-  it('routeros drops volatile export header', () => {
+  it('routeros normalizes the volatile export header (keeps version, drops timestamp)', () => {
     const out = scrub(
       routeros,
       [
@@ -53,7 +53,8 @@ describe('driver scrubbers', () => {
         'add name=br0',
       ].join('\n'),
     );
-    expect(out).not.toContain('by RouterOS');
+    expect(out).not.toContain('jul/24/2026');
+    expect(out).toContain('# by RouterOS 7.15');
     expect(out).not.toContain('software id');
     expect(out).toContain('add name=br0');
   });
