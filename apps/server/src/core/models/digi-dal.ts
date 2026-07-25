@@ -1,4 +1,5 @@
 import { defineDriver, dropLines, hideSecret } from '@fe2o3/driver-sdk';
+import { parseVerboseDuration } from './uptime.js';
 
 /**
  * Digi Accelerated Linux (DAL) cellular routers — WR/EX/IX/6300 series.
@@ -25,4 +26,14 @@ export default defineDriver({
     // DAL config lines: `... password <secret>`, `... key <secret>`, PSKs
     hideSecret(/\b(?:password|passphrase|pre_shared_key|psk|secret|key)\s+(\S+)/gim),
   ],
+  uptime: {
+    // from the already-collected `show system`:
+    // "Uptime : 6 days, 6 hours, 21 minutes, 57 seconds (541317s)"
+    parse: (text) => {
+      const secs = /^\s*uptime\s*:?.*?\((\d+)\s*s\)/im.exec(text);
+      if (secs?.[1]) return Number(secs[1]);
+      const human = /^\s*uptime\s*:?\s*(.+)/im.exec(text);
+      return human?.[1] ? parseVerboseDuration(human[1]) : null;
+    },
+  },
 });

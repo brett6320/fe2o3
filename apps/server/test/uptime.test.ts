@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import cradlepoint from '../src/core/models/cradlepoint.js';
+import digiDal from '../src/core/models/digi-dal.js';
 import digiTransport from '../src/core/models/digi-transport.js';
 import edgeos from '../src/core/models/edgeos.js';
 import eos from '../src/core/models/eos.js';
@@ -90,6 +91,14 @@ describe('per-driver uptime', () => {
     expect(digiTransport.uptime?.cmd).toBe('uptime');
     // "Uptime 96 Hrs 0 Mins 12 Seconds"
     expect(digiTransport.uptime?.parse('Uptime 96 Hrs 0 Mins 12 Seconds')).toBe(96 * H + 12);
+  });
+  it('digi DAL parses show system uptime (prefers the (Ns) value)', () => {
+    expect(digiDal.uptime?.cmd).toBeUndefined();
+    const showSystem =
+      'Model : Digi IX20\nUptime : 6 days, 6 hours, 21 minutes, 57 seconds (541317s)\n';
+    expect(digiDal.uptime?.parse(showSystem)).toBe(541317);
+    // falls back to the human form when no (Ns) is present
+    expect(digiDal.uptime?.parse('Uptime : 2 hours, 5 minutes')).toBe(2 * H + 5 * M);
   });
   it('linux reads /proc/uptime', () => {
     expect(linux.uptime?.cmd).toBe('cat /proc/uptime');
