@@ -5,6 +5,7 @@ import {
   hideSecret,
   type InventoryItem,
 } from '@fe2o3/driver-sdk';
+import { parseVerboseDuration } from './uptime.js';
 
 /** Extract a named `! --- <name> ---` section body from an assembled config. */
 function section(config: string, name: string): string {
@@ -106,4 +107,11 @@ export default defineDriver({
     },
   ],
   facts: iosFacts,
+  uptime: {
+    // parsed from the already-collected `show version` ("<host> uptime is …")
+    parse: (text) => {
+      const m = /uptime is (.+)/i.exec(text);
+      return m?.[1] ? parseVerboseDuration(m[1]) : null;
+    },
+  },
 });

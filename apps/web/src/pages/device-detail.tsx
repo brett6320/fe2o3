@@ -75,9 +75,32 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+function humanizeDuration(sec: number): string {
+  const w = Math.floor(sec / 604800);
+  const d = Math.floor((sec % 604800) / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const parts: string[] = [];
+  if (w) parts.push(`${w}w`);
+  if (d) parts.push(`${d}d`);
+  if (h) parts.push(`${h}h`);
+  if (m && parts.length < 3) parts.push(`${m}m`);
+  return parts.join(' ') || '<1m';
+}
+
 function OverviewPanel({ device, facts }: { device: Device; facts: FactsResponse | undefined }) {
   const f = facts?.facts;
   const inventory = f?.inventory ?? [];
+  const uptime =
+    device.uptimeSeconds != null && device.uptimeCapturedAt
+      ? {
+          text: humanizeDuration(device.uptimeSeconds),
+          capturedAt: new Date(device.uptimeCapturedAt),
+          lastBoot: new Date(
+            new Date(device.uptimeCapturedAt).getTime() - device.uptimeSeconds * 1000,
+          ),
+        }
+      : null;
   return (
     <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Card>
@@ -100,6 +123,13 @@ function OverviewPanel({ device, facts }: { device: Device; facts: FactsResponse
             label="Last backup"
             value={device.lastBackupAt ? new Date(device.lastBackupAt).toLocaleString() : 'never'}
           />
+          {uptime && (
+            <>
+              <Field label="Uptime" value={uptime.text} />
+              <Field label="Last boot" value={uptime.lastBoot.toLocaleString()} />
+              <Field label="Uptime captured" value={uptime.capturedAt.toLocaleString()} />
+            </>
+          )}
         </dl>
       </Card>
       <Card>

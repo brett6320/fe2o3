@@ -39,9 +39,12 @@ Use the org switcher at the top of the sidebar if you belong to several orgs.
 The **Overview** tab (default) summarizes the generally-static device facts —
 name, host, model, protocol, status — alongside hardware details parsed from the
 latest backup: serial number, hardware model, OS version, and a hardware
-inventory table. Parsing is per-driver and best-effort (Cisco IOS today); models
-without a parser just show the basic fields, and hardware details appear once the
-device has been backed up. The **Config** tab shows the latest capture with a version dropdown — the
+inventory table. It also shows the device's **uptime** — the latest value, when
+it was captured, and the calculated last boot time. Uptime is collected as a
+*stat* on each backup and is never treated as a config change (it won't create a
+diff). Facts/uptime parsing is per-driver and best-effort; models without a
+parser just show the basic fields, and details appear once the device has been
+backed up. The **Config** tab shows the latest capture with a version dropdown — the
 selected version's sha is kept in the URL (`?sha=…`), so a specific version can
 be bookmarked or shared. The **Versions** tab lets you pick two versions and
 see a colorized diff. The **Jobs** tab lists every run; admins/operators can

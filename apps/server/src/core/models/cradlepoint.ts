@@ -1,4 +1,5 @@
 import { type DeviceFacts, defineDriver, hideSecret, type InventoryItem } from '@fe2o3/driver-sdk';
+import { parseSeconds } from './uptime.js';
 
 /** Extract a named `# --- <name> ---` section body from an assembled config. */
 function section(config: string, name: string): string {
@@ -73,4 +74,5 @@ export default defineDriver({
     ),
   ],
   facts: cradlepointFacts,
+  uptime: { cmd: 'get status/system/uptime', parse: parseSeconds },
 });

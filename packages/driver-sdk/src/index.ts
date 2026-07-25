@@ -105,6 +105,16 @@ export interface DriverSpec {
    * from a stored config. Returns null when nothing recognizable is found.
    */
   facts?: (configText: string) => DeviceFacts | null;
+  /**
+   * Optional uptime stat collection. Uptime is volatile and never committed to
+   * the config. When `cmd` is set the executor runs it in-session and its
+   * output is NOT part of the config; otherwise `parse` receives the collected
+   * config text (e.g. Cisco IOS `show version`). Returns uptime seconds or null.
+   */
+  uptime?: {
+    cmd?: string;
+    parse: (text: string) => number | null;
+  };
 }
 
 /** Helper preserving inference; drivers `export default defineDriver({...})`. */

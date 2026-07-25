@@ -6,6 +6,8 @@ import type { ConnectOptions, Transport } from './input/transport.js';
 export interface ExecutorResult {
   configText: string;
   transcript: string;
+  /** Volatile uptime stat in seconds (never part of the config), if parsed. */
+  uptimeSeconds?: number | undefined;
 }
 
 export interface DeviceSession {
@@ -138,10 +140,31 @@ export async function runBackup(session: DeviceSession): Promise<ExecutorResult>
       }
     }
 
-    let configText = `${sections.join('\n\n')}\n`;
+    const rawConfig = `${sections.join('\n\n')}\n`;
+    let configText = rawConfig;
     for (const scrub of driver.scrubbers) configText = scrub(configText);
 
-    return { configText, transcript: cleanOutput(transport.transcript()) };
+    // Uptime is a volatile *stat*, never part of the committed config. Parse it
+    // from a dedicated command's output (not committed) or, when the driver has
+    // no `cmd`, from the pre-scrub collected config (e.g. IOS `show version`).
+    // Best-effort: a stat failure must never fail the backup.
+    let uptimeSeconds: number | undefined;
+    if (driver.uptime) {
+      try {
+        let src = rawConfig;
+        if (driver.uptime.cmd) {
+          await sendCmd(driver.uptime.cmd);
+          const raw = await expectPaged(transport, commandDone, 20_000);
+          src = extractBody(raw, driver.uptime.cmd);
+        }
+        const secs = driver.uptime.parse(src);
+        if (secs != null && Number.isFinite(secs) && secs >= 0) uptimeSeconds = Math.floor(secs);
+      } catch {
+        // ignore — uptime is best-effort
+      }
+    }
+
+    return { configText, transcript: cleanOutput(transport.transcript()), uptimeSeconds };
   } finally {
     await transport.close();
   }

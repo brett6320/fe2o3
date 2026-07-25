@@ -34,13 +34,13 @@ port.on('message', (msg: { type: string; task?: CollectTask }) => {
       if (!driver) {
         result = { ok: false, error: `unknown driver model: ${task.driverId}` };
       } else {
-        const { configText, transcript } = await runBackup({
+        const { configText, transcript, uptimeSeconds } = await runBackup({
           driver,
           protocol: task.protocol,
           connect: task.connect,
           enablePassword: task.enablePassword,
         });
-        result = { ok: true, configText, transcript };
+        result = { ok: true, configText, transcript, uptimeSeconds };
       }
     } catch (err) {
       result = { ok: false, error: err instanceof Error ? err.message : String(err) };

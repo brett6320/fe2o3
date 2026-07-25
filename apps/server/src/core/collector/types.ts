@@ -28,6 +28,8 @@ export interface CollectResult {
   ok: boolean;
   configText?: string;
   transcript?: string;
+  /** Volatile uptime stat in seconds (never committed), if parsed. */
+  uptimeSeconds?: number | undefined;
   error?: string;
 }
 

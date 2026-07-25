@@ -5,6 +5,7 @@ import {
   hideSecret,
   type InventoryItem,
 } from '@fe2o3/driver-sdk';
+import { parseJunosUptime } from './uptime.js';
 
 /** Extract a named `# --- <name> ---` section body from an assembled config. */
 function section(config: string, name: string): string {
@@ -152,4 +153,5 @@ export default defineDriver({
     hideSecret(/secret "?([^";\s]+)"?/gm),
   ],
   facts: junosFacts,
+  uptime: { cmd: 'show system uptime', parse: parseJunosUptime },
 });

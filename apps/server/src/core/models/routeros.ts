@@ -1,4 +1,5 @@
 import { type DeviceFacts, defineDriver, dropLines } from '@fe2o3/driver-sdk';
+import { parseCompactDuration } from './uptime.js';
 
 /** Parse model, serial and version from the `/export` header comments. */
 function routerosFacts(config: string): DeviceFacts | null {
@@ -48,4 +49,11 @@ export default defineDriver({
     },
   ],
   facts: routerosFacts,
+  uptime: {
+    cmd: '/system resource print',
+    parse: (text) => {
+      const m = /uptime:\s*(\S+)/i.exec(text);
+      return m?.[1] ? parseCompactDuration(m[1]) : null;
+    },
+  },
 });

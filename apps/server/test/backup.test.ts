@@ -29,7 +29,8 @@ const fakeDevice = {
   responses: {
     'terminal length 0': '',
     'terminal width 0': '',
-    'show version': 'Cisco IOS Software, Version 15.2(4)M6',
+    'show version':
+      'Cisco IOS Software, Version 15.2(4)M6\nrouter1 uptime is 3 weeks, 2 days, 4 hours, 5 minutes',
     'show inventory': 'NAME: "Chassis", DESCR: "Fake 2901"',
     'show running-config': RUNNING_CONFIG,
   },
@@ -121,6 +122,8 @@ describe('backup engine e2e', () => {
     expect(content).not.toContain('s3cr3tRO');
     expect(content).not.toContain('ntp clock-period');
     expect(content).not.toContain('Building configuration');
+    // uptime is a stat, not committed to the config
+    expect(content).not.toContain('uptime is');
 
     const { stdout } = await execa('git', ['log', '--format=%s'], { cwd: repoDir });
     expect(stdout).toContain('router1: backup (manual)');
@@ -177,6 +180,19 @@ describe('backup engine e2e', () => {
     expect(body.facts.inventory).toHaveLength(1);
     expect(body.facts.inventory[0].name).toBe('Chassis');
     expect(body.facts.inventory[0].description).toBe('Fake 2901');
+  });
+
+  it('records uptime as a device stat (not a config change)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: `/api/v1/orgs/${orgId}/devices/${deviceId}`,
+      cookies: cookie,
+    });
+    expect(res.statusCode).toBe(200);
+    const d = res.json();
+    // 3 weeks, 2 days, 4 hours, 5 minutes
+    expect(d.uptimeSeconds).toBe(3 * 604800 + 2 * 86400 + 4 * 3600 + 5 * 60);
+    expect(d.uptimeCapturedAt).toBeTruthy();
   });
 
   it('renaming a group path slug moves device files with history', async () => {
