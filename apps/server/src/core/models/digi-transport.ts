@@ -1,5 +1,31 @@
-import { defineDriver, dropLines, hideSecret } from '@fe2o3/driver-sdk';
+import {
+  type DeviceFacts,
+  defineDriver,
+  dropLines,
+  hideSecret,
+  type InventoryItem,
+} from '@fe2o3/driver-sdk';
 import { parseVerboseDuration } from './uptime.js';
+
+/** Parse serial/model/part from the Sarian `hw` command output. */
+function digiTransportFacts(config: string): DeviceFacts | null {
+  const serial = /^Serial Number:\s*(\S+)/im.exec(config)?.[1];
+  const model = /^Model:\s*(\S+)/im.exec(config)?.[1];
+  const part = /^Part#:\s*(\S+)/im.exec(config)?.[1];
+  const rev = /^HW Rev:\s*(\S+)/im.exec(config)?.[1];
+
+  const facts: DeviceFacts = {};
+  if (serial) facts.serial = serial;
+  if (model) facts.model = model;
+  if (serial || model || part) {
+    const item: InventoryItem = { name: model ?? 'Chassis' };
+    if (part) item.pid = part;
+    if (serial) item.serial = serial;
+    if (rev) item.description = `HW Rev ${rev}`;
+    facts.inventory = [item];
+  }
+  return Object.keys(facts).length ? facts : null;
+}
 
 /**
  * Digi TransPort (Sarian OS) cellular routers — WR/DR/SR series with the
@@ -25,6 +51,8 @@ export default defineDriver({
   init: [],
   commands: [
     { cmd: 'ati', name: 'identity', optional: true },
+    // `hw` prints serial / model / part# / HW rev / MACs (stable — safe to store)
+    { cmd: 'hw', name: 'hardware', optional: true },
     // `c` = current/running config; `0` = saved persistent profile
     { cmd: 'config c show', name: 'running-config' },
     { cmd: 'config 0 show', name: 'saved-config', optional: true },
@@ -38,6 +66,7 @@ export default defineDriver({
     // drop the trailing `OK` command terminator so it isn't stored as config
     dropLines(/^OK\s*$/),
   ],
+  facts: digiTransportFacts,
   // `uptime` → "Uptime 96 Hrs 0 Mins 12 Seconds\nOK" (stat command, not committed)
   uptime: { cmd: 'uptime', parse: parseVerboseDuration },
 });

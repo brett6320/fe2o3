@@ -37,6 +37,7 @@ describe('digi transport driver', () => {
       suppressCommandPrompt: true, // Sarian sends no prompt after a command
       responses: {
         ati: 'Digi TransPort WR21\nOK',
+        hw: 'Serial Number: 345898\nHW Rev: 1203b\nMAC 0: 00:04:2d:05:47:2a\nModel: WR21\nPart#: WR21-L51B-DE1-XX\nRAM: 128 MB\nOK',
         'config c show': RUNNING,
         'config 0 show': SAVED,
         uptime: 'Uptime 96 Hrs 0 Mins 12 Seconds\nOK',
@@ -68,6 +69,11 @@ describe('digi transport driver', () => {
       // uptime captured as a stat (from the `uptime` command), not in config
       expect(result.uptimeSeconds).toBe(96 * 3600 + 12);
       expect(result.configText).not.toContain('Uptime 96 Hrs');
+      // hardware facts parsed from the `hw` command output
+      const facts = digiTransport.facts?.(result.configText);
+      expect(facts?.serial).toBe('345898');
+      expect(facts?.model).toBe('WR21');
+      expect(facts?.inventory?.[0]?.pid).toBe('WR21-L51B-DE1-XX');
     } finally {
       await fake.close();
     }
@@ -80,6 +86,7 @@ describe('digi transport driver', () => {
       suppressCommandPrompt: true,
       responses: {
         ati: 'Digi TransPort WR21\nOK',
+        hw: 'Serial Number: 345898\nHW Rev: 1203b\nMAC 0: 00:04:2d:05:47:2a\nModel: WR21\nPart#: WR21-L51B-DE1-XX\nRAM: 128 MB\nOK',
         'config c show': RUNNING,
         'config 0 show': SAVED,
         uptime: 'Uptime 96 Hrs 0 Mins 12 Seconds\nOK',
