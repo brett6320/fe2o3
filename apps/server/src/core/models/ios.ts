@@ -82,6 +82,9 @@ export default defineDriver({
     dropLines(/^Current configuration : \d+ bytes/),
     dropLines(/^Load for five secs/),
     dropLines(/^Time source is /),
+    // `show version` uptime advances every poll; drop it so it doesn't look
+    // like a config change ("<host> uptime is …", "Uptime for … is …").
+    dropLines(/\buptime (?:is|for) /i),
     // secrets
     hideSecret(/^enable (?:secret|password)(?: level \d+)? (?:\d )?(\S+)/gm),
     hideSecret(/^username (\S+) privilege (\d+) (?:secret|password) (?:\d )?(\S+)/gm),
