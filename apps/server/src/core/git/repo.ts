@@ -31,6 +31,12 @@ export class OrgRepo {
       await this.git(['config', 'user.name', 'fe2o3']);
       await this.git(['config', 'user.email', 'fe2o3@localhost']);
     }
+    // Force git to treat stored configs as text for diffs. Some gear (e.g. Digi
+    // Sarian) emits stray NUL bytes; without this git flags the blob binary and
+    // shows "Binary files differ" instead of a line diff. Repo-local, uncommitted.
+    const { writeFile } = await import('node:fs/promises');
+    await mkdir(join(this.dir, '.git', 'info'), { recursive: true });
+    await writeFile(join(this.dir, '.git', 'info', 'attributes'), '* diff\n', 'utf8');
   }
 
   /**
@@ -48,7 +54,9 @@ export class OrgRepo {
       const relPath = join(relDir, opts.deviceName);
       await mkdir(join(this.dir, relDir), { recursive: true });
       const { writeFile } = await import('node:fs/promises');
-      await writeFile(join(this.dir, relPath), opts.content, 'utf8');
+      // Strip NUL — Postgres already rejects it, and git treats a NUL-bearing
+      // blob as binary (no line diff). Belt-and-suspenders with the executor.
+      await writeFile(join(this.dir, relPath), opts.content.replaceAll('\u0000', ''), 'utf8');
       await this.git(['add', '--', relPath]);
       const diff = await this.git(['diff', '--cached', '--quiet']).then(
         () => true,
