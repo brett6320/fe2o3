@@ -29,6 +29,45 @@ something changes.
 - **Simple deployment** — single Node process; embedded Postgres (PGlite) out of
   the box, real PostgreSQL in production via one env var.
 
+## Screenshots
+
+At-a-glance status across every tenant — device health, recent changes, and
+failing devices:
+
+![Dashboard](docs/screenshots/dashboard.png)
+
+Each device has an Overview with parsed facts (serial, model, OS version), a
+hardware inventory tree, and uptime with a calculated last-boot time:
+
+![Device overview](docs/screenshots/device-overview.png)
+
+<details>
+<summary><b>More screenshots</b> — devices, config, groups, jobs, dark theme</summary>
+
+<br>
+
+**Devices** — every device under backup, with per-vendor status and one-click backup:
+
+![Devices](docs/screenshots/devices.png)
+
+**Config** — the latest capture with a version picker (secrets scrubbed):
+
+![Config](docs/screenshots/device-config.png)
+
+**Groups** — expand a group to see its devices:
+
+![Groups](docs/screenshots/groups.png)
+
+**Jobs** — every backup run, filterable, with full session transcripts:
+
+![Jobs](docs/screenshots/jobs.png)
+
+**Dark theme** — the whole UI adapts to light/dark:
+
+![Dashboard (dark)](docs/screenshots/dashboard-dark.png)
+
+</details>
+
 ## Quick start
 
 ```bash
