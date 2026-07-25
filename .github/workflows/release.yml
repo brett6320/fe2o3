@@ -141,6 +141,10 @@ jobs:
           image-ref: ${{ env.IMAGE }}:sha-${{ steps.meta.outputs.shortsha }}
           format: sarif
           output: trivy-image.sarif
+          # vuln only — secret-scanning a built image flags dependency test
+          # fixtures (e.g. ssh2's test private keys); the repo fs scan
+          # (trivy.yml) already secret-scans the actual source.
+          scanners: vuln
           severity: CRITICAL,HIGH
           ignore-unfixed: true
         env:

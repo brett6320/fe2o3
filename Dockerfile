@@ -21,6 +21,11 @@ COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY apps/server/package.json apps/server/
 COPY packages packages/
 RUN pnpm install --frozen-lockfile --filter "@fe2o3/server..." --prod
+# The runtime runs the app via tsx and never invokes npm/corepack — drop the
+# base image's bundled npm and corepack's cached pnpm so their (unused, but
+# scanner-flagged) transitive deps don't ship in the image.
+RUN rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx \
+  /root/.cache /root/.npm
 COPY apps/server/src apps/server/src
 COPY apps/server/drizzle.config.ts apps/server/
 COPY --from=build /app/apps/web/dist apps/web/dist
