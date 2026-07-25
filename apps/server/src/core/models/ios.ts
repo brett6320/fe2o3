@@ -5,17 +5,10 @@ import {
   hideSecret,
   type InventoryItem,
 } from '@fe2o3/driver-sdk';
+import { section } from './sections.js';
 import { parseVerboseDuration } from './uptime.js';
 
-/** Extract a named `! --- <name> ---` section body from an assembled config. */
-function section(config: string, name: string): string {
-  const header = new RegExp(`^! --- ${name} ---$`, 'm');
-  const m = header.exec(config);
-  if (!m) return '';
-  const rest = config.slice(m.index + m[0].length);
-  const next = rest.search(/^! --- .+ ---$/m);
-  return (next === -1 ? rest : rest.slice(0, next)).trim();
-}
+const COMMENT = '! ';
 
 /** Parse Cisco `show inventory` NAME/DESCR + PID/VID/SN pairs into a flat list. */
 function parseInventory(text: string): InventoryItem[] {
@@ -39,8 +32,8 @@ function parseInventory(text: string): InventoryItem[] {
 
 /** Parse serial, model, IOS version and inventory from a stored IOS config. */
 function iosFacts(config: string): DeviceFacts | null {
-  const version = section(config, 'version');
-  const inventory = parseInventory(section(config, 'inventory'));
+  const version = section(config, 'version', COMMENT);
+  const inventory = parseInventory(section(config, 'inventory', COMMENT));
 
   const osVersion = /\bVersion\s+([^\s,]+)/.exec(version)?.[1];
   const model =

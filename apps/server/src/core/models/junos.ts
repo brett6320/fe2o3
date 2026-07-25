@@ -5,17 +5,10 @@ import {
   hideSecret,
   type InventoryItem,
 } from '@fe2o3/driver-sdk';
+import { section } from './sections.js';
 import { parseJunosUptime } from './uptime.js';
 
-/** Extract a named `# --- <name> ---` section body from an assembled config. */
-function section(config: string, name: string): string {
-  const header = new RegExp(`^# --- ${name} ---$`, 'm');
-  const m = header.exec(config);
-  if (!m) return '';
-  const rest = config.slice(m.index + m[0].length);
-  const next = rest.search(/^# --- .+ ---$/m);
-  return (next === -1 ? rest : rest.slice(0, next)).trim();
-}
+const COMMENT = '# ';
 
 const HW_HEADER = /^Item\s+Version\s+Part number\s+Serial number\s+Description/;
 // Lines that appear inside the section but aren't inventory rows: the dashed
@@ -112,14 +105,14 @@ function parseHardware(text: string): { serial: string | undefined; inventory: I
 
 /** Parse model, Junos version, serial, and hardware inventory from a JunOS config. */
 function junosFacts(config: string): DeviceFacts | null {
-  const version = section(config, 'version');
+  const version = section(config, 'version', COMMENT);
   const model = /^Model:\s*(\S+)/im.exec(version)?.[1];
   // Prefer the explicit `Junos:` line; otherwise take the bracketed version
   // from any `JUNOS <component> [x]` line (EX/older releases report it only
   // there, with no `Junos:` or `JUNOS Software Release` line).
   const osVersion =
     /^Junos:\s*(\S+)/im.exec(version)?.[1] ?? /JUNOS\b.*?\[([^\]]+)\]/i.exec(version)?.[1];
-  const { serial, inventory } = parseHardware(section(config, 'hardware'));
+  const { serial, inventory } = parseHardware(section(config, 'hardware', COMMENT));
 
   const facts: DeviceFacts = {};
   if (serial) facts.serial = serial;
