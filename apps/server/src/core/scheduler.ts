@@ -10,7 +10,6 @@ import type { TaskRunner } from './collector/types.js';
 import type { DriverRegistry } from './models/registry.js';
 
 const TICK_MS = 5_000;
-const MAX_BACKOFF_MS = 6 * 60 * 60 * 1000;
 // On startup, devices that are already due (or were never scheduled) are
 // spread across this window instead of all firing on the first tick — so a
 // container restart doesn't kick off an immediate stampede of backups.
@@ -146,7 +145,7 @@ export class Scheduler {
       this.inFlight.add(d.id);
       void this.queue.add(async () => {
         try {
-          await this.runOne(d.id, d.intervalSec ?? d.defaultIntervalSec, d.consecutiveFailures);
+          await this.runOne(d.id);
         } catch (err) {
           // A single device must never crash the scheduler / process.
           this.ctx.log?.warn?.({ err, deviceId: d.id }, 'scheduled backup threw');
@@ -157,8 +156,7 @@ export class Scheduler {
     }
   }
 
-  /** Manually triggered backups also reschedule through here. */
-  async runOne(deviceId: string, intervalSec: number, priorFailures: number) {
+  async runOne(deviceId: string) {
     const { db, bus } = this.ctx;
     const [dev] = await db
       .select({ orgId: devices.orgId, name: devices.name })
@@ -168,17 +166,8 @@ export class Scheduler {
     if (!dev) return;
 
     bus.publish({ type: 'job.started', orgId: dev.orgId, deviceId, deviceName: dev.name });
+    // finalizeCollect reschedules nextRunAt (manual and scheduled backups alike).
     const outcome = await collectDevice(this.ctx, this.run, deviceId, 'scheduled');
-
-    const intervalMs = intervalSec * 1000;
-    const delay =
-      outcome.status === 'success'
-        ? intervalMs
-        : Math.min(intervalMs * 2 ** (priorFailures + 1), MAX_BACKOFF_MS);
-    await db
-      .update(devices)
-      .set({ nextRunAt: new Date(Date.now() + delay) })
-      .where(eq(devices.id, deviceId));
 
     bus.publish({
       type: 'job.finished',
