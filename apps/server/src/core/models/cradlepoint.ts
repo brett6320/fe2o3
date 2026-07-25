@@ -1,22 +1,15 @@
 import { type DeviceFacts, defineDriver, hideSecret, type InventoryItem } from '@fe2o3/driver-sdk';
+import { section } from './sections.js';
 import { parseSeconds } from './uptime.js';
 
-/** Extract a named `# --- <name> ---` section body from an assembled config. */
-function section(config: string, name: string): string {
-  const header = new RegExp(`^# --- ${name} ---$`, 'm');
-  const m = header.exec(config);
-  if (!m) return '';
-  const rest = config.slice(m.index + m[0].length);
-  const next = rest.search(/^# --- .+ ---$/m);
-  return (next === -1 ? rest : rest.slice(0, next)).trim();
-}
+const COMMENT = '# ';
 
 const str = (v: unknown): string | undefined =>
   typeof v === 'string' && v.length > 0 ? v : undefined;
 
 /** Parse model + serial from the Cradlepoint `product-info` JSON section. */
 function cradlepointFacts(config: string): DeviceFacts | null {
-  const raw = section(config, 'product-info');
+  const raw = section(config, 'product-info', COMMENT);
   if (!raw) return null;
   let info: Record<string, unknown>;
   try {
