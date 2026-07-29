@@ -43,6 +43,16 @@ interface FactsResponse {
 
 type Tab = 'overview' | 'config' | 'versions' | 'jobs' | 'edit';
 
+/** Trigger a client-side download of text content as a named file. */
+function downloadText(content: string, filename: string) {
+  const url = URL.createObjectURL(new Blob([content], { type: 'text/plain' }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function DiffView({ diff }: { diff: string }) {
   if (!diff.trim()) return <p className="p-4 text-sm text-muted-foreground">No differences.</p>;
   return (
@@ -205,7 +215,8 @@ export function DeviceDetailPage() {
       replace: true,
     });
   };
-  const [diffFrom, setDiffFrom] = useState<string | null>(null);
+  // Up to two versions checked for comparison on the Versions tab.
+  const [compareShas, setCompareShas] = useState<string[]>([]);
   const [openJob, setOpenJob] = useState<string | null>(null);
 
   const base = `/orgs/${orgId}/devices/${deviceId}`;
@@ -236,10 +247,23 @@ export function DeviceDetailPage() {
     queryFn: () => api<{ content: string }>(`${base}/versions/${sha}`),
     enabled: !!orgId && !!sha,
   });
+  // Order the two checked versions so the older one is always the `from` (left)
+  // side of the diff, regardless of the order they were checked in. The list is
+  // newest-first, so a larger index means an older commit.
+  const [fromSha, toSha] =
+    compareShas.length === 2
+      ? (() => {
+          const [a, b] = compareShas;
+          const list = versions.data ?? [];
+          const idxA = list.findIndex((v) => v.sha === a);
+          const idxB = list.findIndex((v) => v.sha === b);
+          return idxA > idxB ? ([a, b] as const) : ([b, a] as const);
+        })()
+      : [null, null];
   const diff = useQuery({
-    queryKey: ['diff', orgId, deviceId, diffFrom, sha],
-    queryFn: () => api<{ diff: string }>(`${base}/diff?from=${diffFrom}&to=${sha}`),
-    enabled: !!orgId && !!sha && !!diffFrom && diffFrom !== sha,
+    queryKey: ['diff', orgId, deviceId, fromSha, toSha],
+    queryFn: () => api<{ diff: string }>(`${base}/diff?from=${fromSha}&to=${toSha}`),
+    enabled: !!orgId && !!fromSha && !!toSha && fromSha !== toSha,
   });
   const jobs = useQuery({
     queryKey: ['jobs', orgId, deviceId],
@@ -329,17 +353,30 @@ export function DeviceDetailPage() {
               {sha ? `Version ${sha.slice(0, 8)}` : 'No backups yet'}
             </span>
             {versions.data && versions.data.length > 0 && (
-              <select
-                className="rounded-md border border-input bg-transparent px-2 py-1 text-sm"
-                value={sha ?? ''}
-                onChange={(e) => setSelectedSha(e.target.value)}
-              >
-                {versions.data.map((v) => (
-                  <option key={v.sha} value={v.sha}>
-                    {v.sha.slice(0, 8)} — {new Date(v.date).toLocaleString()}
-                  </option>
-                ))}
-              </select>
+              <div className="flex items-center gap-2">
+                <select
+                  className="rounded-md border border-input bg-transparent px-2 py-1 text-sm"
+                  value={sha ?? ''}
+                  onChange={(e) => setSelectedSha(e.target.value)}
+                >
+                  {versions.data.map((v) => (
+                    <option key={v.sha} value={v.sha}>
+                      {v.sha.slice(0, 8)} — {new Date(v.date).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  variant="outline"
+                  className="px-3 py-1 text-sm"
+                  disabled={!config.data?.content || !sha}
+                  onClick={() => {
+                    if (!config.data?.content || !sha) return;
+                    downloadText(config.data.content, `${d.name}-${sha.slice(0, 8)}.cfg`);
+                  }}
+                >
+                  Download
+                </Button>
+              </div>
             )}
           </div>
           <pre className="max-h-[70vh] overflow-auto p-4 font-mono text-xs leading-5">
@@ -352,39 +389,61 @@ export function DeviceDetailPage() {
         <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-[320px_1fr]">
           <Card className="p-0">
             <div className="border-b border-border px-4 py-2 text-sm text-muted-foreground">
-              Select two versions to compare
+              Check two versions to compare
             </div>
             <ul className="max-h-[60vh] divide-y divide-border overflow-auto">
-              {versions.data?.map((v) => (
-                <li key={v.sha}>
-                  <button
-                    type="button"
-                    className={cn(
-                      'w-full px-4 py-2 text-left text-sm hover:bg-accent',
-                      (v.sha === diffFrom || v.sha === sha) && 'bg-accent',
-                    )}
-                    onClick={() => {
-                      if (diffFrom === v.sha) setDiffFrom(null);
-                      else if (sha === v.sha) setSelectedSha(null);
-                      else if (!diffFrom) setDiffFrom(v.sha);
-                      else setSelectedSha(v.sha);
-                    }}
-                  >
-                    <span className="font-mono text-xs">{v.sha.slice(0, 8)}</span>
-                    <span className="ml-2 text-muted-foreground">
-                      {new Date(v.date).toLocaleString()}
-                    </span>
-                    <div className="truncate text-xs text-muted-foreground">{v.subject}</div>
-                  </button>
-                </li>
-              ))}
+              {versions.data?.map((v) => {
+                const checked = compareShas.includes(v.sha);
+                // Cap the selection at two: checking a third drops the earlier
+                // pick and keeps the most recently checked one plus the new one.
+                const toggle = () =>
+                  setCompareShas((prev) =>
+                    prev.includes(v.sha)
+                      ? prev.filter((s) => s !== v.sha)
+                      : prev.length >= 2
+                        ? [...prev.slice(1), v.sha]
+                        : [...prev, v.sha],
+                  );
+                return (
+                  <li key={v.sha}>
+                    <label
+                      className={cn(
+                        'flex cursor-pointer items-start gap-2 px-4 py-2 text-sm hover:bg-accent',
+                        checked && 'bg-accent',
+                      )}
+                    >
+                      <input type="checkbox" className="mt-1" checked={checked} onChange={toggle} />
+                      <span className="min-w-0">
+                        <span className="font-mono text-xs">{v.sha.slice(0, 8)}</span>
+                        <span className="ml-2 text-muted-foreground">
+                          {new Date(v.date).toLocaleString()}
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {v.subject}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
             </ul>
           </Card>
           <Card className="p-0">
-            <div className="border-b border-border px-4 py-2 text-sm text-muted-foreground">
-              {diffFrom && sha && diffFrom !== sha
-                ? `${diffFrom.slice(0, 8)} → ${sha.slice(0, 8)}`
-                : 'Pick an older version on the left'}
+            <div className="flex items-center justify-between border-b border-border px-4 py-2 text-sm text-muted-foreground">
+              <span>
+                {fromSha && toSha
+                  ? `${fromSha.slice(0, 8)} → ${toSha.slice(0, 8)}`
+                  : 'Check two versions on the left (older shown on the left)'}
+              </span>
+              {compareShas.length > 0 && (
+                <button
+                  type="button"
+                  className="text-xs hover:text-foreground"
+                  onClick={() => setCompareShas([])}
+                >
+                  Clear
+                </button>
+              )}
             </div>
             <div className="max-h-[60vh] overflow-auto">
               {diff.data ? <DiffView diff={diff.data.diff} /> : null}
